@@ -9,6 +9,7 @@
 	import { downloadBlob, downloadText, fileToDataUrl, safeFileName } from '$lib/utils/download';
 	import { floodFillIndices, countSlots } from '$lib/utils/grid';
 	import { gridMatrixCsv, materialListCsv } from '$lib/utils/csv';
+	import { planPaletteRemap, type PaletteRemap } from '$lib/utils/palette';
 
 	type Props = {
 		project: ProjectV1;
@@ -36,6 +37,7 @@
 	let initializedProject = '';
 	let catalogChoice = $state('');
 	let replacement = $state<Record<number, number>>({});
+	let remapPreview = $state<PaletteRemap | null>(null);
 	const history = new EditHistory();
 	let historyVersion = $state(0);
 	let strokeBefore = new Map<number, number>();
@@ -61,6 +63,7 @@
 		focalY = value.importSettings.focalY;
 		maxColors = value.importSettings.maxColors;
 		autoPalette = value.importSettings.autoPalette;
+		remapPreview = null;
 	}
 
 	function update(next: ProjectV1) {
@@ -145,7 +148,38 @@
 
 	function syncImportSettings() {
 		maxColors = Math.max(minimumPaletteLimit, Math.min(32, Number(maxColors) || 8));
+		remapPreview = null;
 		update({ ...project, importSettings: { fit, focalX, focalY, maxColors, autoPalette } });
+	}
+
+	function previewPaletteRemap() {
+		try { remapPreview = planPaletteRemap(project, maxColors); }
+		catch (caught) { error = caught instanceof Error ? caught.message : 'Preview remap palette gagal dibuat.'; }
+	}
+
+	function applyPaletteRemap() {
+		if (!remapPreview) return;
+		const before = cloneProject(project);
+		const after: ProjectV1 = {
+			...project,
+			palette: remapPreview.palette,
+			cells: remapPreview.cells,
+			backgroundSlot: remapPreview.backgroundSlot,
+			importSettings: { ...project.importSettings, maxColors },
+			updatedAt: new Date().toISOString()
+		};
+		const label = `Kurangi palette:${Date.now()}`;
+		history.clear();
+		structuralSnapshots.clear();
+		const indices = Uint32Array.from({ length: project.cells.length }, (_, index) => index);
+		history.push({ indices, before: before.cells.slice(), after: after.cells.slice(), label });
+		structuralSnapshots.set(label, { before, after: cloneProject(after) });
+		historyVersion += 1;
+		activeSlot = remapPreview.slotMap[activeSlot] ?? 0;
+		const removedCount = remapPreview.removed.length;
+		remapPreview = null;
+		update(after);
+		flash(`${removedCount} warna di-remap ke palette ${after.palette.length} warna.`);
 	}
 
 	async function importImage(event: Event) {
@@ -181,7 +215,8 @@
 				updatedAt: new Date().toISOString()
 			};
 			const label = `Import gambar:${Date.now()}`;
-			if (structuralSnapshots.size >= 4) { history.clear(); structuralSnapshots.clear(); }
+			history.clear();
+			structuralSnapshots.clear();
 			const indices = Uint32Array.from({ length: project.cells.length }, (_, index) => index);
 			history.push({ indices, before: before.cells.slice(), after: after.cells.slice(), label });
 			structuralSnapshots.set(label, { before, after: cloneProject(after) });
@@ -198,12 +233,14 @@
 		const selected = catalog.find((color) => color.id === catalogChoice);
 		if (!selected || project.palette.length >= maxColors) return;
 		const palette = [...project.palette, catalogColorToPalette(selected, project.palette.length)];
+		remapPreview = null;
 		catalogChoice = '';
 		update({ ...project, palette });
 		activeSlot = palette.length - 1;
 	}
 
 	function togglePin(slot: number) {
+		remapPreview = null;
 		const palette = project.palette.map((entry) => entry.slot === slot ? { ...entry, pinned: !entry.pinned } : entry);
 		const required = new Set([palette[project.backgroundSlot]?.catalogId, ...palette.filter((entry) => entry.pinned).map((entry) => entry.catalogId)].filter(Boolean)).size;
 		maxColors = Math.max(maxColors, required);
@@ -211,6 +248,7 @@
 	}
 
 	function removePaletteColor(slot: number) {
+		remapPreview = null;
 		if (project.palette.length <= 1) return;
 		const target = Number(replacement[slot] ?? project.backgroundSlot);
 		if (target === slot || !project.palette[target]) { error = 'Pilih warna pengganti yang berbeda.'; return; }
@@ -229,6 +267,7 @@
 	}
 
 	function setBackground(slot: number) {
+		remapPreview = null;
 		const palette = project.palette.map((entry) => ({ ...entry, pinned: entry.slot === slot ? true : entry.pinned }));
 		const required = new Set(palette.filter((entry) => entry.pinned).map((entry) => entry.catalogId)).size;
 		maxColors = Math.max(maxColors, required);
@@ -239,8 +278,8 @@
 		if (pageCount > 100 && !confirm(`Blueprint ini akan menghasilkan ${pageCount} halaman. Lanjutkan?`)) return;
 		exporting = 'PDF'; error = null;
 		try {
-			const { createProjectPdfBytes } = await import('$lib/export/pdf');
-			const bytes = await createProjectPdfBytes(project);
+			const { createProjectPdfInBackground } = await import('$lib/export/pdf-client');
+			const bytes = await createProjectPdfInBackground(project);
 			downloadBlob(new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' }), `${safeFileName(project.name)}-blueprint.pdf`);
 			flash('Blueprint PDF berhasil dibuat.');
 		} catch (caught) { error = caught instanceof Error ? caught.message : 'PDF tidak dapat dibuat.'; }
@@ -307,6 +346,19 @@
 					{/if}
 					<label class="toggle-row"><span><strong>Pilih otomatis</strong><small>Dari katalog aktif</small></span><input type="checkbox" bind:checked={autoPalette} onchange={syncImportSettings} /></label>
 					<label class="control-label"><span>Maksimum warna</span><input class="number-input" type="number" min={minimumPaletteLimit} max="32" bind:value={maxColors} onchange={syncImportSettings} /></label>
+					{#if maxColors < project.palette.length}
+						<div class="remap-box">
+							<strong>Palette proyek masih {project.palette.length} warna</strong>
+							<small>Buat preview sebelum menerapkan batas {maxColors} warna.</small>
+							{#if remapPreview}
+								<p>{remapPreview.changedCells.toLocaleString('id-ID')} sel akan dinomori atau dipetakan ulang.</p>
+								<ul>{#each remapPreview.removed.slice(0, 5) as mapping}<li><i style={`--color:${mapping.from.hex}`}></i>{mapping.from.name}<span>→</span><i style={`--color:${mapping.to.hex}`}></i>{mapping.to.name}</li>{/each}</ul>
+								<button type="button" class="apply-remap" onclick={applyPaletteRemap}>Terapkan remap</button>
+							{:else}
+								<button type="button" onclick={previewPaletteRemap}>Preview remap</button>
+							{/if}
+						</div>
+					{/if}
 					{#if project.sourceImage && !processing}<button class="reconvert" type="button" onclick={reconvertSource}>Terapkan ulang pengaturan <span>↻</span></button>{/if}
 					{#if processing}<div class="progress"><i></i><span>Menganalisis warna gambar…</span></div>{/if}
 				</section>
@@ -368,6 +420,7 @@
 
 <style>
 	.compact-export{display:none;position:relative}.compact-export summary{list-style:none;border:0;border-radius:6px;background:var(--accent);color:white;padding:9px 12px;font-size:9px;font-weight:800}.compact-export>div{position:absolute;right:0;top:38px;z-index:15;width:145px;padding:6px;border:1px solid #ccc9c1;border-radius:7px;background:white;box-shadow:0 12px 28px rgba(31,37,34,.18)}.compact-export>div button{width:100%;border:0;background:transparent;text-align:left;padding:8px;border-radius:4px;font-size:9px;font-weight:700}.compact-export>div button:hover{background:#eeece6}
+	.remap-box{margin:-5px 0 16px;padding:11px;border:1px solid #d6c9ad;border-radius:7px;background:#f7f1e5}.remap-box>strong,.remap-box>small{display:block}.remap-box>strong{font-size:9px}.remap-box>small{font-size:8px;line-height:1.45;color:#777266;margin:3px 0 8px}.remap-box>button{width:100%;border:1px solid #b7a47a;border-radius:5px;background:white;padding:7px;color:#5d5033;font-size:8px;font-weight:800}.remap-box>button.apply-remap{background:var(--forest);border-color:var(--forest);color:white}.remap-box p{font-size:8px;line-height:1.4;color:#5d5033}.remap-box ul{list-style:none;padding:0;margin:7px 0;display:flex;flex-direction:column;gap:4px}.remap-box li{display:grid;grid-template-columns:10px minmax(0,1fr) 10px 10px minmax(0,1fr);align-items:center;gap:4px;font-size:7px}.remap-box li i{width:10px;height:10px;background:var(--color);border:1px solid rgba(0,0,0,.12)}.remap-box li span{text-align:center;color:#8c7651}
 	.reconvert{width:100%;height:38px;margin:-3px 0 14px;border:1px solid #b8c8c0;border-radius:6px;background:#eef3f0;color:#315447;font-size:9px;font-weight:800}.reconvert span{margin-left:7px;font-size:13px}
 	.editor-shell{height:100vh;min-height:680px;display:flex;flex-direction:column;background:#e2e0da;color:#202622;overflow:hidden}.editor-header{height:66px;flex:0 0 auto;display:flex;align-items:center;gap:16px;padding:0 18px;border-bottom:1px solid #c8c6bf;background:#faf9f5}.back{width:36px;height:36px;border:1px solid #d2d0c9;border-radius:6px;background:white;font-size:18px;color:#333a36}.project-name{display:flex;flex-direction:column;border-right:1px solid #d5d2cb;padding-right:20px;min-width:220px}.project-name small,.section-number{font-size:8px;letter-spacing:.16em;font-weight:850;color:#8a8e89}.project-name input{border:0;background:transparent;padding:0;height:23px;font-size:14px;font-weight:800;color:#252b27;min-width:0}.project-name input:focus{outline:0;border-bottom:1px solid var(--cyan)}.project-metrics{display:flex;align-items:center;gap:11px;color:#646b66;font-size:11px;font-weight:650;margin-right:auto}.project-metrics i{width:3px;height:3px;background:#abaea9;border-radius:50%}.save-state{font-size:10px;color:#6b736d;display:flex;align-items:center;gap:7px}.save-state>span{width:7px;height:7px;border-radius:50%;background:#66a56d;box-shadow:0 0 0 4px rgba(102,165,109,.12)}.save-state.problem>span{background:#d05b38}.history-buttons{display:flex}.history-buttons button{width:35px;height:34px;border:1px solid #d0cec7;background:white;color:#464c48;font-size:17px}.history-buttons button:first-child{border-radius:6px 0 0 6px}.history-buttons button:last-child{border-radius:0 6px 6px 0;border-left:0}.history-buttons button:disabled{opacity:.35}
 	.editor-body{display:grid;grid-template-columns:270px minmax(420px,1fr) 250px;min-height:0;flex:1}.left-panel,.right-panel{background:#f9f8f4;overflow-y:auto}.left-panel{border-right:1px solid #c9c7c0}.right-panel{border-left:1px solid #c9c7c0;padding:25px 20px}.panel-tabs{display:grid;grid-template-columns:1fr 1fr;height:48px;border-bottom:1px solid #d6d3cb}.panel-tabs button{border:0;background:transparent;color:#7b817d;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.11em;position:relative}.panel-tabs button.active{color:#252b27}.panel-tabs button.active:after{content:"";height:2px;position:absolute;bottom:0;left:20px;right:20px;background:var(--accent)}.left-panel section{padding:23px 20px 35px}.left-panel h2,.right-panel h2{font-size:20px;letter-spacing:-.04em;margin:5px 0 17px}.upload-zone{height:150px;border:1px dashed #b8bbb5;background:#eeece6;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:18px;overflow:hidden;position:relative;cursor:pointer}.upload-zone:hover{border-color:var(--cyan);background:#edf3f1}.upload-zone b{font-size:27px;color:var(--accent);font-weight:400}.upload-zone strong{font-size:12px;margin-top:5px}.upload-zone small{font-size:9px;color:#858b86;margin-top:4px}.upload-zone img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.upload-zone>span{position:absolute;bottom:9px;background:rgba(31,37,34,.82);color:white;padding:6px 9px;border-radius:5px;font-size:9px;font-weight:750}.control-label{display:block;margin:0 0 16px}.control-label>span,.range-label>span{display:flex;justify-content:space-between;margin-bottom:7px;font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:#6b726d}.control-label select,.control-label input,.add-color select,.replace-pop select{width:100%;height:38px;border:1px solid #cfcdc6;background:white;border-radius:6px;padding:0 9px;font-size:11px;font-weight:650;color:#303632}.control-label input.number-input{width:100%}.range-label{display:block;margin-bottom:15px}.range-label input{width:100%;accent-color:var(--accent)}.toggle-row{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #dedbd4;border-bottom:1px solid #dedbd4;padding:13px 0;margin:4px 0 16px}.toggle-row>span{display:flex;flex-direction:column}.toggle-row strong{font-size:11px}.toggle-row small{font-size:9px;color:#848983;margin-top:2px}.toggle-row input{width:32px;accent-color:var(--forest)}.progress{display:flex;gap:9px;align-items:center;background:#edf3f1;color:#315447;border-radius:6px;padding:10px;font-size:10px;font-weight:700}.progress i{width:12px;height:12px;border:2px solid #91aca0;border-top-color:#315447;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.helper{font-size:10px;color:#747b76;line-height:1.5;margin:-8px 0 15px}.palette-list{display:flex;flex-direction:column;gap:6px}.palette-row{display:grid;grid-template-columns:1fr 26px 24px;align-items:center;border:1px solid #d7d4cd;border-radius:6px;background:white;position:relative}.palette-row.chosen{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}.color-choice{border:0;background:transparent;display:flex;align-items:center;gap:9px;text-align:left;padding:7px;min-width:0}.color-choice>span:first-child{width:27px;height:27px;flex:0 0 auto;background:var(--color);border:1px solid rgba(0,0,0,.16)}.color-choice>span:last-child{min-width:0;display:flex;flex-direction:column}.color-choice strong{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.color-choice small{font-size:8px;color:#7c827e;margin-top:2px}.pin{border:0;background:transparent;color:#c4c5c2;font-size:10px}.pin.active{color:var(--accent)}details{position:relative}summary{list-style:none;cursor:pointer;text-align:center;color:#9b6557;font-size:16px}.replace-pop{position:absolute;right:0;top:25px;width:185px;z-index:5;padding:10px;background:#fff;border:1px solid #ccc8c0;border-radius:7px;box-shadow:0 12px 28px rgba(31,37,34,.18)}.replace-pop span{display:block;font-size:8px;font-weight:800;text-transform:uppercase;margin-bottom:5px}.replace-pop button{width:100%;margin-top:7px;border:0;border-radius:5px;background:#99482f;color:white;padding:7px;font-size:9px;font-weight:800}.add-color{display:grid;grid-template-columns:1fr 34px;gap:5px;margin-top:10px}.add-color select{min-width:0}.add-color button{border:0;border-radius:6px;background:var(--forest);color:white;font-size:18px}.add-color button:disabled{opacity:.35}.background{margin-top:18px}

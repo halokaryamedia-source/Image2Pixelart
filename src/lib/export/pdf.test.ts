@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
 import { DEFAULT_CATALOG } from '$lib/catalog';
 import { createProject } from '$lib/project';
-import { createProjectPdfBytes } from './pdf';
+import { createProjectPdfBytes, pdfDetailPanels } from './pdf';
 
 describe('blueprint PDF', () => {
 	it('paginates a 24 x 48 grid into overview plus two detail pages', async () => {
@@ -20,5 +20,21 @@ describe('blueprint PDF', () => {
 		const bytes = await createProjectPdfBytes(project);
 		const document = await PDFDocument.load(bytes);
 		expect(document.getPageCount()).toBe(3);
+	});
+
+	it('covers every coordinate exactly once across detail panels', () => {
+		const columns = 49;
+		const rows = 37;
+		const covered = new Uint8Array(columns * rows);
+		for (const panel of pdfDetailPanels(columns, rows)) {
+			expect(panel.columns).toBeLessThanOrEqual(24);
+			expect(panel.rows).toBeLessThanOrEqual(24);
+			for (let row = 0; row < panel.rows; row += 1) {
+				for (let column = 0; column < panel.columns; column += 1) {
+					covered[(panel.startRow + row) * columns + panel.startColumn + column] += 1;
+				}
+			}
+		}
+		expect([...covered].every((count) => count === 1)).toBe(true);
 	});
 });

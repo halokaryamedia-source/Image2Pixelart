@@ -114,6 +114,7 @@
 
 	async function importProject(file: File) {
 		try {
+			if (file.size > 50 * 1024 * 1024) throw new Error('File proyek melebihi batas 50 MB.');
 			let project = deserializeProject(await file.text());
 			if (projects.some((item) => item.id === project.id)) {
 				project = { ...project, id: crypto.randomUUID(), name: `${project.name} (impor)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };

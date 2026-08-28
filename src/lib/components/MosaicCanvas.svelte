@@ -29,8 +29,9 @@
 	let panning = $state(false);
 	let panOrigin = { x: 0, y: 0, left: 0, top: 0 };
 	const ruler = 34;
+	const maxCanvasEdge = 16_000;
 	let fitCell = $derived(Math.max(1.5, Math.min(26, (viewportWidth - ruler - 34) / project.columns, (viewportHeight - ruler - 34) / project.rows)));
-	let cellSize = $derived(Math.max(1, fitCell * zoom));
+	let cellSize = $derived(Math.max(0.5, Math.min(fitCell * zoom, (maxCanvasEdge - ruler - 1) / Math.max(project.columns, project.rows))));
 
 	onMount(() => {
 		const observer = new ResizeObserver(([entry]) => {
@@ -55,7 +56,7 @@
 		if (!canvas) return;
 		const displayWidth = ruler + project.columns * cellSize + 1;
 		const displayHeight = ruler + project.rows * cellSize + 1;
-		const ratio = Math.max(displayWidth, displayHeight) > 16_000 ? 1 : Math.min(devicePixelRatio || 1, 2);
+		const ratio = Math.max(1, Math.min(devicePixelRatio || 1, 2, maxCanvasEdge / Math.max(displayWidth, displayHeight)));
 		canvas.width = Math.ceil(displayWidth * ratio);
 		canvas.height = Math.ceil(displayHeight * ratio);
 		canvas.style.width = `${displayWidth}px`;

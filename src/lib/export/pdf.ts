@@ -7,6 +7,18 @@ const A4 = { width: 595.28, height: 841.89 };
 const MARGIN = 42;
 const CHUNK = 24;
 
+export type PdfDetailPanel = { startColumn: number; startRow: number; columns: number; rows: number };
+
+export function pdfDetailPanels(columns: number, rows: number): PdfDetailPanel[] {
+	const panels: PdfDetailPanel[] = [];
+	for (let startRow = 0; startRow < rows; startRow += CHUNK) {
+		for (let startColumn = 0; startColumn < columns; startColumn += CHUNK) {
+			panels.push({ startColumn, startRow, columns: Math.min(CHUNK, columns - startColumn), rows: Math.min(CHUNK, rows - startRow) });
+		}
+	}
+	return panels;
+}
+
 function color(hex: string) {
 	const value = hexToRgb(hex);
 	return rgb(value.r / 255, value.g / 255, value.b / 255);
@@ -119,19 +131,16 @@ export async function createProjectPdfBytes(project: ProjectV1): Promise<Uint8Ar
 	const document = await PDFDocument.create();
 	const regular = await document.embedFont(StandardFonts.Helvetica);
 	const bold = await document.embedFont(StandardFonts.HelveticaBold);
-	const pageColumns = Math.ceil(project.columns / CHUNK);
-	const pageRows = Math.ceil(project.rows / CHUNK);
-	const totalPages = 1 + pageColumns * pageRows;
+	const panels = pdfDetailPanels(project.columns, project.rows);
+	const totalPages = 1 + panels.length;
 	const cover = document.addPage([A4.width, A4.height]);
 	drawCover(cover, project, regular, bold);
 	drawFooter(cover, regular, 1, totalPages);
 	let pageNumber = 2;
-	for (let row = 0; row < project.rows; row += CHUNK) {
-		for (let column = 0; column < project.columns; column += CHUNK) {
-			const page = document.addPage([A4.width, A4.height]);
-			drawDetail(page, project, regular, bold, column, row);
-			drawFooter(page, regular, pageNumber++, totalPages);
-		}
+	for (const panel of panels) {
+		const page = document.addPage([A4.width, A4.height]);
+		drawDetail(page, project, regular, bold, panel.startColumn, panel.startRow);
+		drawFooter(page, regular, pageNumber++, totalPages);
 	}
 	document.setTitle(safeText(`${project.name} - Mosaic blueprint`));
 	document.setAuthor('MOSAIC/PLAN');

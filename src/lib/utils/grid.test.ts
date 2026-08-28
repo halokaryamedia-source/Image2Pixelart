@@ -14,6 +14,12 @@ describe('grid math', () => {
 		expect(result.suggestionsCm.every((size) => 1210 % cmToMm(size) === 0 && 2400 % cmToMm(size) === 0)).toBe(true);
 	});
 
+	it('rejects unsafe physical dimensions before divisor search', () => {
+		const result = validateGridMm(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 1);
+		expect(result.valid).toBe(false);
+		expect(result.suggestionsCm).toEqual([]);
+	});
+
 	it('flood fills only the connected region', () => {
 		const cells = Uint16Array.from([0, 0, 1, 0, 1, 1, 1, 0, 1]);
 		expect([...floodFillIndices(cells, 3, 3, 0, 2)].sort()).toEqual([0, 1, 3]);
