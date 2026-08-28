@@ -34,12 +34,18 @@
 	let cellSize = $derived(Math.max(0.5, Math.min(fitCell * zoom, (maxCanvasEdge - ruler - 1) / Math.max(project.columns, project.rows))));
 
 	onMount(() => {
+		let resizeFrame = 0;
 		const observer = new ResizeObserver(([entry]) => {
-			viewportWidth = entry.contentRect.width;
-			viewportHeight = entry.contentRect.height;
+			const nextWidth = Math.round(entry.contentRect.width);
+			const nextHeight = Math.round(entry.contentRect.height);
+			cancelAnimationFrame(resizeFrame);
+			resizeFrame = requestAnimationFrame(() => {
+				if (Math.abs(viewportWidth - nextWidth) >= 1) viewportWidth = nextWidth;
+				if (Math.abs(viewportHeight - nextHeight) >= 1) viewportHeight = nextHeight;
+			});
 		});
 		observer.observe(scroller);
-		return () => observer.disconnect();
+		return () => { cancelAnimationFrame(resizeFrame); observer.disconnect(); };
 	});
 
 	$effect(() => {
