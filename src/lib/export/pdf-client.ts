@@ -1,4 +1,5 @@
 import type { ProjectV1 } from '$lib/types';
+import { cloneProject } from '$lib/project';
 
 export async function createProjectPdfInBackground(project: ProjectV1): Promise<Uint8Array> {
 	if (typeof Worker === 'undefined') {
@@ -22,13 +23,8 @@ export async function createProjectPdfInBackground(project: ProjectV1): Promise<
 			worker.terminate();
 			reject(new Error('Worker PDF tidak tersedia pada browser ini.'));
 		};
-		const snapshot: ProjectV1 = {
-			...project,
-			palette: project.palette.map((entry) => ({ ...entry })),
-			cells: project.cells.slice(),
-			importSettings: { ...project.importSettings },
-			sourceImage: undefined
-		};
+		const snapshot = cloneProject(project);
+		snapshot.sourceImage = undefined;
 		worker.postMessage(snapshot, [snapshot.cells.buffer]);
 	});
 }

@@ -1,23 +1,20 @@
-export type FitMode = 'cover' | 'contain';
+export const EMPTY_CELL = 0xffff;
+
+export type PlacementMode = 'crop' | 'fit';
+export type RenderMode = 'contour' | 'photo';
 export type EditorTool = 'pencil' | 'fill' | 'picker' | 'eraser' | 'pan';
 
-export type CatalogColor = {
+export type ProjectPaletteEntry = {
 	id: string;
-	name: string;
-	code?: string;
+	slot: number;
 	hex: string;
-	active: boolean;
-	createdAt: string;
-	updatedAt: string;
 };
 
-export type ProjectPaletteEntry = {
-	slot: number;
-	catalogId: string;
-	name: string;
-	code?: string;
-	hex: string;
-	pinned: boolean;
+export type CropRect = {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
 };
 
 export type SourceImage = {
@@ -29,15 +26,14 @@ export type SourceImage = {
 };
 
 export type ImportSettings = {
-	fit: FitMode;
-	focalX: number;
-	focalY: number;
-	maxColors: number;
-	autoPalette: boolean;
+	placement: PlacementMode;
+	crop: CropRect | null;
+	renderMode: RenderMode;
+	suggestionCount: number;
 };
 
-export type ProjectV1 = {
-	schemaVersion: 1;
+export type ProjectV2 = {
+	schemaVersion: 2;
 	id: string;
 	name: string;
 	widthMm: number;
@@ -46,7 +42,6 @@ export type ProjectV1 = {
 	columns: number;
 	rows: number;
 	palette: ProjectPaletteEntry[];
-	backgroundSlot: number;
 	cells: Uint16Array;
 	importSettings: ImportSettings;
 	sourceImage?: SourceImage;
@@ -54,12 +49,15 @@ export type ProjectV1 = {
 	updatedAt: string;
 };
 
-export type SerializedProjectV1 = Omit<ProjectV1, 'cells'> & {
+// Compatibility alias for existing internal imports. Serialized projects use schema v2.
+export type ProjectV1 = ProjectV2;
+
+export type SerializedProjectV2 = Omit<ProjectV2, 'cells'> & {
 	cellsRle: number[];
 };
 
 export type ProjectSummary = Pick<
-	ProjectV1,
+	ProjectV2,
 	'id' | 'name' | 'widthMm' | 'heightMm' | 'cellMm' | 'columns' | 'rows' | 'palette' | 'createdAt' | 'updatedAt'
 > & { previewCells: number[] };
 
@@ -76,6 +74,7 @@ export type ColorSample = {
 	l: number;
 	a: number;
 	b: number;
+	alpha?: number;
 };
 
 export type ConversionRequest = {
@@ -83,21 +82,17 @@ export type ConversionRequest = {
 	mimeType: string;
 	columns: number;
 	rows: number;
-	fit: FitMode;
-	focalX: number;
-	focalY: number;
-	backgroundHex: string;
-	backgroundCatalogId: string;
-	catalog: CatalogColor[];
-	existingPalette: ProjectPaletteEntry[];
-	maxColors: number;
-	autoPalette: boolean;
+	placement: PlacementMode;
+	crop: CropRect | null;
+	renderMode: RenderMode;
+	suggestionCount: number;
+	palette: ProjectPaletteEntry[];
+	suggestPalette: boolean;
 };
 
 export type ConversionResult = {
 	cells: Uint16Array;
 	palette: ProjectPaletteEntry[];
-	backgroundSlot: number;
 	imageWidth: number;
 	imageHeight: number;
 };

@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont } from 'pdf-lib';
-import type { ProjectV1 } from '$lib/types';
+import type { ProjectV2 } from '$lib/types';
+import { EMPTY_CELL } from '$lib/types';
 import { hexToRgb } from '$lib/utils/color';
 import { countSlots } from '$lib/utils/grid';
 
@@ -33,7 +34,7 @@ function drawFooter(page: PDFPage, font: PDFFont, pageNumber: number, totalPages
 	page.drawText(`MOSAIC/PLAN  |  Halaman ${pageNumber} dari ${totalPages}`, { x: MARGIN, y: 16, size: 7.5, font, color: rgb(0.36, 0.39, 0.37) });
 }
 
-function drawOverviewGrid(page: PDFPage, project: ProjectV1, x: number, y: number, maxWidth: number, maxHeight: number): void {
+function drawOverviewGrid(page: PDFPage, project: ProjectV2, x: number, y: number, maxWidth: number, maxHeight: number): void {
 	const cell = Math.min(maxWidth / project.columns, maxHeight / project.rows);
 	const width = project.columns * cell;
 	const height = project.rows * cell;
@@ -44,23 +45,25 @@ function drawOverviewGrid(page: PDFPage, project: ProjectV1, x: number, y: numbe
 			const slot = project.cells[row * project.columns + column];
 			let run = 1;
 			while (column + run < project.columns && project.cells[row * project.columns + column + run] === slot) run += 1;
-			page.drawRectangle({ x: startX + column * cell, y: y + height - (row + 1) * cell, width: run * cell + 0.05, height: cell + 0.05, color: color(project.palette[slot]?.hex ?? '#FFFFFF') });
+			if (slot !== EMPTY_CELL && project.palette[slot]) page.drawRectangle({ x: startX + column * cell, y: y + height - (row + 1) * cell, width: run * cell + 0.05, height: cell + 0.05, color: color(project.palette[slot].hex) });
 			column += run;
 		}
 	}
 	page.drawRectangle({ x: startX, y, width, height, borderWidth: 0.75, borderColor: rgb(0.28, 0.3, 0.29) });
 }
 
-function drawCover(page: PDFPage, project: ProjectV1, regular: PDFFont, bold: PDFFont): void {
+function drawCover(page: PDFPage, project: ProjectV2, regular: PDFFont, bold: PDFFont): void {
 	page.drawText('MOSAIC/PLAN', { x: MARGIN, y: 786, size: 10, font: bold, color: rgb(0.91, 0.33, 0.15) });
 	page.drawText(safeText(project.name), { x: MARGIN, y: 743, size: 27, font: bold, color: rgb(0.12, 0.15, 0.13) });
 	page.drawText('Blueprint produksi pixel mosaic', { x: MARGIN, y: 721, size: 10, font: regular, color: rgb(0.4, 0.43, 0.41) });
 
+	const counts = countSlots(project.cells, project.palette.length);
+	const filledCount = counts.reduce((sum, count) => sum + count, 0);
 	const cards = [
 		['UKURAN FISIK', `${project.widthMm / 10} x ${project.heightMm / 10} cm`],
 		['UKURAN TILE', `${project.cellMm / 10} x ${project.cellMm / 10} cm`],
 		['GRID', `${project.columns} x ${project.rows}`],
-		['TOTAL MATERIAL', project.cells.length.toLocaleString('id-ID')]
+		['TILE TERISI', filledCount.toLocaleString('id-ID')]
 	];
 	cards.forEach(([label, value], index) => {
 		const width = (A4.width - MARGIN * 2 - 18) / 4;
@@ -72,7 +75,6 @@ function drawCover(page: PDFPage, project: ProjectV1, regular: PDFFont, bold: PD
 
 	drawOverviewGrid(page, project, MARGIN, 286, A4.width - MARGIN * 2, 340);
 	page.drawText('LEGENDA & KEBUTUHAN MATERIAL', { x: MARGIN, y: 256, size: 8, font: bold, color: rgb(0.36, 0.39, 0.37) });
-	const counts = countSlots(project.cells, project.palette.length);
 	project.palette.forEach((entry, index) => {
 		const column = index % 4;
 		const row = Math.floor(index / 4);
@@ -80,14 +82,14 @@ function drawCover(page: PDFPage, project: ProjectV1, regular: PDFFont, bold: PD
 		const y = 224 - row * 22;
 		page.drawRectangle({ x, y, width: 14, height: 14, color: color(entry.hex), borderWidth: 0.45, borderColor: rgb(0.45, 0.47, 0.45) });
 		page.drawText(String(entry.slot + 1), { x: x + 18, y: y + 5, size: 6.5, font: bold, color: rgb(0.18, 0.2, 0.19) });
-		const label = safeText(entry.code || entry.name).slice(0, 12);
+		const label = entry.hex;
 		page.drawText(label, { x: x + 31, y: y + 5, size: 6.5, font: regular, color: rgb(0.18, 0.2, 0.19) });
 		page.drawText(`${counts[entry.slot] ?? 0}`, { x: x + 102, y: y + 5, size: 6.5, font: bold, color: rgb(0.18, 0.2, 0.19) });
 	});
 	page.drawText('Warna di layar dan PDF adalah representasi. Cocokkan dengan sampel material fisik sebelum produksi.', { x: MARGIN, y: 48, size: 7.5, font: regular, color: rgb(0.45, 0.47, 0.45) });
 }
 
-function drawDetail(page: PDFPage, project: ProjectV1, regular: PDFFont, bold: PDFFont, startColumn: number, startRow: number): void {
+function drawDetail(page: PDFPage, project: ProjectV2, regular: PDFFont, bold: PDFFont, startColumn: number, startRow: number): void {
 	const columns = Math.min(CHUNK, project.columns - startColumn);
 	const rows = Math.min(CHUNK, project.rows - startRow);
 	page.drawText('MOSAIC/PLAN', { x: MARGIN, y: 795, size: 9, font: bold, color: rgb(0.91, 0.33, 0.15) });
@@ -107,9 +109,9 @@ function drawDetail(page: PDFPage, project: ProjectV1, regular: PDFFont, bold: P
 			const entry = project.palette[slot];
 			const x = x0 + column * cell;
 			const y = y0 + gridHeight - (row + 1) * cell;
-			page.drawRectangle({ x, y, width: cell, height: cell, color: color(entry?.hex ?? '#FFFFFF'), borderColor: rgb(0.35, 0.37, 0.36), borderWidth: 0.35 });
-			if (cell >= 12) {
-				const rgbValue = hexToRgb(entry?.hex ?? '#FFFFFF');
+			page.drawRectangle({ x, y, width: cell, height: cell, color: entry ? color(entry.hex) : rgb(1, 1, 1), borderColor: rgb(0.35, 0.37, 0.36), borderWidth: 0.35 });
+			if (cell >= 12 && slot !== EMPTY_CELL && entry) {
+				const rgbValue = hexToRgb(entry.hex);
 				const luminance = 0.2126 * rgbValue.r + 0.7152 * rgbValue.g + 0.0722 * rgbValue.b;
 				const label = String(slot + 1);
 				page.drawText(label, { x: x + cell / 2 - regular.widthOfTextAtSize(label, 6) / 2, y: y + cell / 2 - 2, size: 6, font: bold, color: luminance > 145 ? rgb(0.12, 0.14, 0.13) : rgb(1, 1, 1) });
@@ -127,7 +129,7 @@ function drawDetail(page: PDFPage, project: ProjectV1, regular: PDFFont, bold: P
 	page.drawText('Nomor di dalam sel mengacu pada legenda warna di halaman overview.', { x: MARGIN, y: 61, size: 7.5, font: regular, color: rgb(0.43, 0.45, 0.44) });
 }
 
-export async function createProjectPdfBytes(project: ProjectV1): Promise<Uint8Array> {
+export async function createProjectPdfBytes(project: ProjectV2): Promise<Uint8Array> {
 	const document = await PDFDocument.create();
 	const regular = await document.embedFont(StandardFonts.Helvetica);
 	const bold = await document.embedFont(StandardFonts.HelveticaBold);

@@ -1,4 +1,5 @@
-import type { ProjectV1 } from '$lib/types';
+import type { ProjectV2 } from '$lib/types';
+import { EMPTY_CELL } from '$lib/types';
 
 const MAX_EXPORT_EDGE = 12_000;
 const MAX_EXPORT_PIXELS = 32_000_000;
@@ -7,12 +8,12 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 	return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('PNG tidak dapat dibuat.')), 'image/png'));
 }
 
-export async function createProjectPng(project: ProjectV1, blueprint = false): Promise<Blob> {
+export async function createProjectPng(project: ProjectV2, blueprint = false): Promise<Blob> {
 	const targetCell = blueprint ? 28 : 18;
 	let cell = Math.max(2, Math.min(targetCell, Math.floor((MAX_EXPORT_EDGE - (blueprint ? 100 : 0)) / Math.max(project.columns, project.rows))));
 	const ruler = blueprint ? 42 : 0;
 	const legendHeight = blueprint ? Math.max(94, Math.ceil(project.palette.length / 4) * 28 + 42) : 0;
-	const legendColumns = blueprint ? Math.min(4, project.palette.length) : 0;
+	const legendColumns = blueprint ? Math.max(1, Math.min(4, project.palette.length)) : 0;
 	const dimensions = (size: number) => {
 		const gridWidth = project.columns * size;
 		const contentWidth = blueprint ? Math.max(gridWidth, legendColumns * 160) : gridWidth;
@@ -31,12 +32,12 @@ export async function createProjectPng(project: ProjectV1, blueprint = false): P
 	canvas.height = size.height;
 	const ctx = canvas.getContext('2d');
 	if (!ctx) throw new Error('Canvas export tidak tersedia.');
-	ctx.fillStyle = '#FBFAF7';
-	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	if (blueprint) { ctx.fillStyle = '#FBFAF7'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
 	for (let row = 0; row < project.rows; row += 1) {
 		for (let column = 0; column < project.columns; column += 1) {
 			const slot = project.cells[row * project.columns + column];
-			ctx.fillStyle = project.palette[slot]?.hex ?? '#FFFFFF';
+			if (slot === EMPTY_CELL || !project.palette[slot]) continue;
+			ctx.fillStyle = project.palette[slot].hex;
 			ctx.fillRect(gridLeft + column * cell, ruler + row * cell, cell, cell);
 		}
 	}
@@ -69,7 +70,7 @@ export async function createProjectPng(project: ProjectV1, blueprint = false): P
 			const y = legendTop + 23 + row * 28;
 			ctx.fillStyle = entry.hex; ctx.fillRect(x, y, 18, 18);
 			ctx.strokeStyle = '#7A7E7A'; ctx.strokeRect(x + 0.5, y + 0.5, 17, 17);
-			ctx.fillStyle = '#343A37'; ctx.font = '11px Inter, sans-serif'; ctx.fillText(`${entry.slot + 1}. ${entry.code || entry.name}`, x + 25, y + 9);
+			ctx.fillStyle = '#343A37'; ctx.font = '11px Inter, sans-serif'; ctx.fillText(`${entry.slot + 1}. ${entry.hex}`, x + 25, y + 9);
 		});
 	}
 	return canvasToBlob(canvas);

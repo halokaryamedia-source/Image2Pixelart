@@ -1,12 +1,13 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import { DEFAULT_CATALOG } from '$lib/catalog';
-import type { CatalogColor, ProjectV1, SourceImage } from '$lib/types';
+import { cloneProject, migrateStoredProject } from '$lib/project';
+import type { ProjectV2, SourceImage } from '$lib/types';
 
-type StoredProject = Omit<ProjectV1, 'sourceImage'>;
+type StoredProject = Omit<ProjectV2, 'sourceImage'> | Record<string, unknown>;
+type LegacyCatalogColor = { id: string; name: string; code?: string; hex: string; active: boolean; createdAt: string; updatedAt: string };
 
 interface MosaicDatabase extends DBSchema {
-	projects: { key: string; value: StoredProject | ProjectV1; indexes: { 'by-updated': string } };
-	catalog: { key: string; value: CatalogColor; indexes: { 'by-name': string } };
+	projects: { key: string; value: StoredProject; indexes: { 'by-updated': string } };
+	catalog: { key: string; value: LegacyCatalogColor; indexes: { 'by-name': string } };
 	sourceImages: { key: string; value: SourceImage };
 }
 
@@ -30,50 +31,35 @@ function database(): Promise<IDBPDatabase<MosaicDatabase>> {
 	return databasePromise;
 }
 
-export async function loadCatalog(): Promise<CatalogColor[]> {
-	const db = await database();
-	let colors = await db.getAll('catalog');
-	if (colors.length === 0) {
-		const tx = db.transaction('catalog', 'readwrite');
-		await Promise.all([...DEFAULT_CATALOG.map((color) => tx.store.put({ ...color })), tx.done]);
-		colors = DEFAULT_CATALOG.map((color) => ({ ...color }));
-	}
-	return colors.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-export async function saveCatalog(catalog: CatalogColor[]): Promise<void> {
-	const db = await database();
-	const tx = db.transaction('catalog', 'readwrite');
-	await tx.store.clear();
-	for (const color of catalog) await tx.store.put(color);
-	await tx.done;
-}
-
-export async function loadProjects(): Promise<ProjectV1[]> {
+export async function loadProjects(): Promise<ProjectV2[]> {
 	const db = await database();
 	const storedProjects = await db.getAll('projects');
-	const projects = await Promise.all(storedProjects.map(async (stored) => {
-		const legacySource = 'sourceImage' in stored ? stored.sourceImage : undefined;
-		const sourceImage = legacySource ?? await db.get('sourceImages', stored.id);
-		if (sourceImage) sourceDataUrls.set(stored.id, sourceImage.dataUrl);
-		return { ...stored, sourceImage } as ProjectV1;
-	}));
+	const projects: ProjectV2[] = [];
+	for (const stored of storedProjects) {
+		const record = stored as Record<string, unknown>;
+		const legacySource = record.sourceImage as SourceImage | undefined;
+		const projectId = typeof record.id === 'string' ? record.id : '';
+		const sourceImage = legacySource ?? (projectId ? await db.get('sourceImages', projectId) : undefined);
+		const project = migrateStoredProject(stored, sourceImage);
+		if (sourceImage) sourceDataUrls.set(project.id, sourceImage.dataUrl);
+		projects.push(project);
+	}
 	return projects.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export async function saveProject(project: ProjectV1): Promise<void> {
+export async function saveProject(project: ProjectV2): Promise<void> {
 	const db = await database();
 	const tx = db.transaction(['projects', 'sourceImages'], 'readwrite');
-	const { sourceImage, ...storedProject } = project;
+	// IndexedDB uses structured cloning and cannot persist Svelte's reactive proxies.
+	const snapshot = cloneProject(project);
+	const { sourceImage, ...storedProject } = snapshot;
 	await tx.objectStore('projects').put(storedProject);
 	if (sourceImage) {
-		if (sourceDataUrls.get(project.id) !== sourceImage.dataUrl) await tx.objectStore('sourceImages').put(sourceImage, project.id);
-	} else {
-		await tx.objectStore('sourceImages').delete(project.id);
-	}
+		if (sourceDataUrls.get(snapshot.id) !== sourceImage.dataUrl) await tx.objectStore('sourceImages').put(sourceImage, snapshot.id);
+	} else await tx.objectStore('sourceImages').delete(snapshot.id);
 	await tx.done;
-	if (sourceImage) sourceDataUrls.set(project.id, sourceImage.dataUrl);
-	else sourceDataUrls.delete(project.id);
+	if (sourceImage) sourceDataUrls.set(snapshot.id, sourceImage.dataUrl);
+	else sourceDataUrls.delete(snapshot.id);
 }
 
 export async function deleteProject(id: string): Promise<void> {

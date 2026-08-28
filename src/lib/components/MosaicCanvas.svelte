@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { EditorTool, ProjectV1 } from '$lib/types';
+	import type { EditorTool, ProjectV2 } from '$lib/types';
+	import { EMPTY_CELL } from '$lib/types';
 	import { lineIndices } from '$lib/utils/grid';
 
 	type Props = {
-		project: ProjectV1;
+		project: ProjectV2;
 		activeSlot: number;
 		tool: EditorTool;
 		zoom: number;
@@ -73,14 +74,23 @@
 		drawing.imageSmoothingEnabled = false;
 		drawing.fillStyle = '#F9F8F4';
 		drawing.fillRect(0, 0, displayWidth, displayHeight);
+		const checker = Math.max(4, Math.min(10, cellSize));
+		for (let y = 0; y < project.rows * cellSize; y += checker) {
+			for (let x = 0; x < project.columns * cellSize; x += checker) {
+				drawing.fillStyle = ((Math.floor(x / checker) + Math.floor(y / checker)) % 2) ? '#E3E1DA' : '#F2F0EB';
+				drawing.fillRect(ruler + x, ruler + y, Math.min(checker, project.columns * cellSize - x), Math.min(checker, project.rows * cellSize - y));
+			}
+		}
 		for (let row = 0; row < project.rows; row += 1) {
 			let column = 0;
 			while (column < project.columns) {
 				const slot = project.cells[row * project.columns + column];
 				let run = 1;
 				while (column + run < project.columns && project.cells[row * project.columns + column + run] === slot) run += 1;
-				drawing.fillStyle = project.palette[slot]?.hex ?? '#FFFFFF';
-				drawing.fillRect(ruler + column * cellSize, ruler + row * cellSize, run * cellSize + 0.2, cellSize + 0.2);
+				if (slot !== EMPTY_CELL && project.palette[slot]) {
+					drawing.fillStyle = project.palette[slot].hex;
+					drawing.fillRect(ruler + column * cellSize, ruler + row * cellSize, run * cellSize + 0.2, cellSize + 0.2);
+				}
 				column += run;
 			}
 		}
@@ -135,13 +145,13 @@
 		}
 		const index = cellAt(event);
 		if (index < 0) return;
-		if (tool === 'fill') { onFill(index, activeSlot); return; }
+		if (tool === 'fill') { if (activeSlot >= 0) onFill(index, activeSlot); return; }
 		if (tool === 'picker') { onPick(project.cells[index]); return; }
-		if (tool === 'pencil' || tool === 'eraser') {
+		if ((tool === 'pencil' && activeSlot >= 0) || tool === 'eraser') {
 			painting = true;
 			lastIndex = index;
 			canvas.setPointerCapture(event.pointerId);
-			onPaint(Uint32Array.of(index), tool === 'eraser' ? project.backgroundSlot : activeSlot, 'start');
+			onPaint(Uint32Array.of(index), tool === 'eraser' ? EMPTY_CELL : activeSlot, 'start');
 		}
 	}
 
@@ -156,14 +166,14 @@
 		if (!painting || index < 0 || index === lastIndex) return;
 		const indices = lineIndices(lastIndex, index, project.columns);
 		lastIndex = index;
-		onPaint(indices, tool === 'eraser' ? project.backgroundSlot : activeSlot, 'move');
+		onPaint(indices, tool === 'eraser' ? EMPTY_CELL : activeSlot, 'move');
 	}
 
 	function pointerUp(event: PointerEvent) {
 		if (panning) panning = false;
 		if (painting) {
 			painting = false;
-			onPaint(new Uint32Array(), tool === 'eraser' ? project.backgroundSlot : activeSlot, 'end');
+			onPaint(new Uint32Array(), tool === 'eraser' ? EMPTY_CELL : activeSlot, 'end');
 		}
 		if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
 	}
@@ -185,9 +195,10 @@
 		else if (event.key === 'End') column = project.columns - 1;
 		else if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			if (tool === 'fill') onFill(keyboardIndex, activeSlot);
+			if (tool === 'fill' && activeSlot >= 0) onFill(keyboardIndex, activeSlot);
 			else if (tool === 'picker') onPick(project.cells[keyboardIndex]);
-			else if (tool === 'pencil' || tool === 'eraser') onEditCell(keyboardIndex, tool === 'eraser' ? project.backgroundSlot : activeSlot);
+			else if (tool === 'eraser') onEditCell(keyboardIndex, EMPTY_CELL);
+			else if (tool === 'pencil' && activeSlot >= 0) onEditCell(keyboardIndex, activeSlot);
 			return;
 		} else return;
 		event.preventDefault();
@@ -203,6 +214,7 @@
 	let hoverColumn = $derived(hoverIndex >= 0 ? hoverIndex % project.columns + 1 : 0);
 	let hoverRow = $derived(hoverIndex >= 0 ? Math.floor(hoverIndex / project.columns) + 1 : 0);
 	let hoverColor = $derived(hoverIndex >= 0 ? project.palette[project.cells[hoverIndex]] : undefined);
+	let hoverEmpty = $derived(hoverIndex >= 0 && project.cells[hoverIndex] === EMPTY_CELL);
 </script>
 
 <div class:dragging={panning} class="canvas-scroller" bind:this={scroller} onwheel={wheel}>
@@ -226,8 +238,10 @@
 		<div class="coordinate-chip">
 			<span style={`--chip:${hoverColor.hex}`}></span>
 			C{hoverColumn} / R{hoverRow}
-			<b>{hoverColor.code || hoverColor.name}</b>
+			<b>{hoverColor.hex}</b>
 		</div>
+	{:else if hoverEmpty}
+		<div class="coordinate-chip empty">C{hoverColumn} / R{hoverRow}<b>SEL KOSONG</b></div>
 	{/if}
 </div>
 

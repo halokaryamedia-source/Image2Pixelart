@@ -1,37 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import type { CatalogColor } from '$lib/types';
-import { orderedProjectPalette } from '$lib/catalog';
-import { hexToOklab, nearestPaletteIndex, normalizeHex, selectCatalogColorIds } from './color';
+import type { ProjectPaletteEntry } from '$lib/types';
+import { hexToOklab, nearestPaletteIndex, normalizeHex, suggestPalette } from './color';
 
-const stamp = '2026-01-01T00:00:00.000Z';
-const catalog: CatalogColor[] = [
-	{ id: 'red', name: 'Red', hex: '#FF0000', active: true, createdAt: stamp, updatedAt: stamp },
-	{ id: 'blue', name: 'Blue', hex: '#0000FF', active: true, createdAt: stamp, updatedAt: stamp },
-	{ id: 'green', name: 'Green', hex: '#00FF00', active: true, createdAt: stamp, updatedAt: stamp }
-];
-
-describe('perceptual colors', () => {
-	it('normalizes shorthand HEX', () => expect(normalizeHex('#abc')).toBe('#AABBCC'));
-
-	it('selects catalog colors that represent image samples and respects a pin', () => {
-		const samples = [hexToOklab('#F00010'), hexToOklab('#EF0010'), hexToOklab('#0010EE')];
-		const selected = selectCatalogColorIds(samples, catalog, 2, ['blue']);
-		expect(selected).toContain('blue');
-		expect(selected).toContain('red');
-		expect(selected).toHaveLength(2);
+describe('color utilities', () => {
+	it('normalizes shorthand and full hex', () => {
+		expect(normalizeHex('#abc')).toBe('#AABBCC');
+		expect(normalizeHex('00ff10')).toBe('#00FF10');
+		expect(normalizeHex('nope')).toBeNull();
 	});
 
-	it('maps a sample to the nearest palette entry', () => {
-		const palette = catalog.slice(0, 2).map((color, slot) => ({ slot, catalogId: color.id, name: color.name, hex: color.hex, pinned: false }));
+	it('maps a sample to the nearest project color', () => {
+		const palette: ProjectPaletteEntry[] = [{ id: 'red', slot: 0, hex: '#FF0000' }, { id: 'blue', slot: 1, hex: '#0000FF' }];
 		expect(nearestPaletteIndex(hexToOklab('#0000F5'), palette)).toBe(1);
 	});
 
-	it('keeps requested pin order and moves the background to slot zero', () => {
-		const selected = selectCatalogColorIds([hexToOklab('#FFFFFF')], catalog, 2, ['green', 'red']);
-		expect(selected).toEqual(['green', 'red']);
-		const palette = catalog.map((color, slot) => ({ slot, catalogId: color.id, name: color.name, hex: color.hex, pinned: color.id === 'green' }));
-		const ordered = orderedProjectPalette(palette, 'blue', 3);
-		expect(ordered.map((entry) => entry.catalogId)).toEqual(['blue', 'green', 'red']);
-		expect(ordered[0].pinned).toBe(true);
+	it('extracts deterministic local suggestions ordered by dominance', () => {
+		const samples = [...Array.from({ length: 20 }, () => hexToOklab('#FF0000')), ...Array.from({ length: 5 }, () => hexToOklab('#0000FF'))];
+		const first = suggestPalette(samples, 2).map((entry) => entry.hex);
+		const second = suggestPalette(samples, 2).map((entry) => entry.hex);
+		expect(first).toEqual(second);
+		expect(first).toHaveLength(2);
+		expect(first[0]).toBe('#FF0000');
 	});
 });
