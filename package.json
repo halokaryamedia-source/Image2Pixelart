@@ -1,0 +1,31 @@
+{
+	"name": "image-to-pixel-art",
+	"private": true,
+	"version": "0.0.1",
+	"engines": { "node": ">=22.12.0" },
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build && node scripts/prepare-sites-build.mjs",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"test": "vitest run",
+		"test:watch": "vitest"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/kit": "^2.63.0",
+		"@sveltejs/vite-plugin-svelte": "^7.1.2",
+		"svelte": "^5.56.1",
+		"svelte-check": "^4.6.0",
+		"typescript": "^6.0.3",
+		"vite": "^8.0.16",
+		"vitest": "^4.1.11"
+	},
+	"dependencies": {
+		"idb": "^8.0.3",
+		"pdf-lib": "^1.17.1"
+	}
+}
