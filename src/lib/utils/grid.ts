@@ -80,6 +80,22 @@ export function countSlots(cells: Uint16Array, paletteSize: number): number[] {
 	return counts;
 }
 
+export function resizeGridCells(cells: Uint16Array, columns: number, rows: number, nextColumns: number, nextRows: number): Uint16Array {
+	if (![columns, rows, nextColumns, nextRows].every((value) => Number.isSafeInteger(value) && value > 0) || cells.length !== columns * rows) {
+		throw new Error('Dimensi grid untuk resize tidak valid.');
+	}
+	if (columns === nextColumns && rows === nextRows) return cells.slice();
+	const resized = new Uint16Array(nextColumns * nextRows);
+	for (let row = 0; row < nextRows; row += 1) {
+		const sourceRow = Math.min(rows - 1, Math.floor((row + 0.5) * rows / nextRows));
+		for (let column = 0; column < nextColumns; column += 1) {
+			const sourceColumn = Math.min(columns - 1, Math.floor((column + 0.5) * columns / nextColumns));
+			resized[row * nextColumns + column] = cells[sourceRow * columns + sourceColumn];
+		}
+	}
+	return resized;
+}
+
 export function floodFillIndices(cells: Uint16Array, columns: number, rows: number, startIndex: number, nextSlot: number): Uint32Array {
 	const targetSlot = cells[startIndex];
 	if (targetSlot === nextSlot || startIndex < 0 || startIndex >= cells.length) return new Uint32Array();

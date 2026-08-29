@@ -8,7 +8,7 @@
 	import { EMPTY_CELL } from '$lib/types';
 	import { createProjectPng } from '$lib/export/png';
 	import { downloadBlob, downloadText, fileToDataUrl, safeFileName } from '$lib/utils/download';
-	import { floodFillIndices, countSlots } from '$lib/utils/grid';
+	import { cmToMm, countSlots, floodFillIndices, resizeGridCells, validateGridMm } from '$lib/utils/grid';
 	import { gridMatrixCsv, materialListCsv } from '$lib/utils/csv';
 	import { normalizeHex } from '$lib/utils/color';
 	import { centeredCropRect } from '$lib/utils/image-crop';
@@ -23,6 +23,10 @@
 	let panel = $state<'import' | 'palette'>('import');
 	type ExportFormat = 'pdf' | 'png' | 'png-grid' | 'materials-csv' | 'matrix-csv' | 'project';
 	let exportFormat = $state<ExportFormat>('pdf');
+	let showCanvasSettings = $state(false);
+	let canvasWidthCm = $state(1);
+	let canvasHeightCm = $state(1);
+	let canvasCellCm = $state(1);
 	let processing = $state(false);
 	let exporting = $state<string | null>(null);
 	let notice = $state<string | null>(null);
@@ -42,6 +46,7 @@
 	let filledCount = $derived(counts.reduce((sum, count) => sum + count, 0));
 	let emptyCount = $derived(project.cells.length - filledCount);
 	let pageCount = $derived(1 + Math.ceil(project.columns / 24) * Math.ceil(project.rows / 24));
+	let canvasValidation = $derived(validateGridMm(cmToMm(canvasWidthCm), cmToMm(canvasHeightCm), cmToMm(canvasCellCm)));
 
 	$effect(() => {
 		if (initializedProject !== project.id) {
@@ -55,8 +60,9 @@
 
 	function commitStructural(before: ProjectV2, after: ProjectV2, labelText: string) {
 		const label = `${labelText}:${Date.now()}:${Math.random()}`;
-		const indices = Uint32Array.from({ length: before.cells.length }, (_, index) => index);
-		history.push({ indices, before: before.cells.slice(), after: after.cells.slice(), label });
+		const sameLength = before.cells.length === after.cells.length;
+		const indices = sameLength ? Uint32Array.from({ length: before.cells.length }, (_, index) => index) : Uint32Array.of(0);
+		history.push({ indices, before: sameLength ? before.cells.slice() : Uint16Array.of(before.cells[0] ?? EMPTY_CELL), after: sameLength ? after.cells.slice() : Uint16Array.of(after.cells[0] ?? EMPTY_CELL), label });
 		structuralSnapshots.set(label, { before: cloneProject(before), after: cloneProject(after) });
 		historyVersion += 1; update(after);
 	}
@@ -89,13 +95,13 @@
 	function undo() {
 		const result = history.undo(project.cells); if (!result.label) return;
 		const structural = structuralSnapshots.get(result.label);
-		const next = structural ? { ...cloneProject(structural.before), cells: result.cells } : { ...project, cells: result.cells };
+		const next = structural ? cloneProject(structural.before) : { ...project, cells: result.cells };
 		historyVersion += 1; activeSlot = next.palette.length ? Math.min(Math.max(activeSlot, 0), next.palette.length - 1) : -1; update(next); flash(`Undo: ${result.label.replace(/:.+$/, '')}`);
 	}
 	function redo() {
 		const result = history.redo(project.cells); if (!result.label) return;
 		const structural = structuralSnapshots.get(result.label);
-		const next = structural ? { ...cloneProject(structural.after), cells: result.cells } : { ...project, cells: result.cells };
+		const next = structural ? cloneProject(structural.after) : { ...project, cells: result.cells };
 		historyVersion += 1; activeSlot = next.palette.length ? Math.min(Math.max(activeSlot, 0), next.palette.length - 1) : -1; update(next); flash(`Redo: ${result.label.replace(/:.+$/, '')}`);
 	}
 
@@ -103,6 +109,41 @@
 		const importSettings = { ...project.importSettings, ...changes };
 		update({ ...project, importSettings });
 		if (project.sourceImage && marksStale) stale = true;
+	}
+
+	function openCanvasSize() {
+		canvasWidthCm = project.widthMm / 10;
+		canvasHeightCm = project.heightMm / 10;
+		canvasCellCm = project.cellMm / 10;
+		showCanvasSettings = true;
+	}
+
+	function applyCanvasSize(event: SubmitEvent) {
+		event.preventDefault();
+		if (!canvasValidation.valid) return;
+		const widthMm = cmToMm(canvasWidthCm);
+		const heightMm = cmToMm(canvasHeightCm);
+		const cellMm = cmToMm(canvasCellCm);
+		const gridChanged = canvasValidation.columns !== project.columns || canvasValidation.rows !== project.rows;
+		const aspectChanged = canvasValidation.columns * project.rows !== project.columns * canvasValidation.rows;
+		if (widthMm === project.widthMm && heightMm === project.heightMm && cellMm === project.cellMm) { showCanvasSettings = false; return; }
+		const before = cloneProject(project);
+		const cells = gridChanged ? resizeGridCells(project.cells, project.columns, project.rows, canvasValidation.columns, canvasValidation.rows) : project.cells.slice();
+		const after: ProjectV2 = {
+			...project,
+			widthMm,
+			heightMm,
+			cellMm,
+			columns: canvasValidation.columns,
+			rows: canvasValidation.rows,
+			cells,
+			importSettings: { ...project.importSettings, crop: aspectChanged && project.importSettings.placement === 'crop' ? null : project.importSettings.crop }
+		};
+		commitStructural(before, after, 'Ubah ukuran canvas');
+		zoom = 1;
+		if (project.sourceImage && gridChanged) stale = true;
+		showCanvasSettings = false;
+		flash(`Canvas diubah menjadi ${after.columns} × ${after.rows} sel.`);
 	}
 
 	async function importImage(event: Event) {
@@ -201,7 +242,7 @@
 	<header class="editor-header">
 		<button class="back" type="button" onclick={onBack} aria-label="Kembali ke daftar proyek">←</button>
 		<div class="project-name"><small>PROYEK AKTIF</small><input value={project.name} onblur={rename} aria-label="Nama proyek" /></div>
-		<div class="project-metrics"><span>{project.widthMm / 10} × {project.heightMm / 10} cm</span><i></i><span>{project.columns} × {project.rows} sel</span></div>
+		<button class="project-metrics" type="button" onclick={openCanvasSize} aria-haspopup="dialog" title="Atur ukuran canvas dan grid"><span>{project.widthMm / 10} × {project.heightMm / 10} cm</span><i></i><span>{project.columns} × {project.rows} sel</span><b>Atur</b></button>
 		<div class:problem={saveState === 'error'} class="save-state"><span></span>{saveState === 'saving' ? 'Menyimpan…' : saveState === 'error' ? 'Gagal simpan' : 'Tersimpan lokal'}</div>
 		<div class="header-export">
 			<select bind:value={exportFormat} disabled={!!exporting} aria-label="Format export">
@@ -211,6 +252,22 @@
 		</div>
 		<div class="history-buttons"><button type="button" onclick={undo} disabled={!canUndo} title="Undo">↶</button><button type="button" onclick={redo} disabled={!canRedo} title="Redo">↷</button></div>
 	</header>
+
+	{#if showCanvasSettings}
+		<div class="canvas-settings-layer">
+			<button class="canvas-settings-backdrop" type="button" onclick={() => (showCanvasSettings = false)} aria-label="Tutup pengaturan ukuran canvas"></button>
+			<div class="canvas-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="canvas-settings-title"><form onsubmit={applyCanvasSize}>
+				<div class="dialog-heading"><div><p class="section-number">PENGATURAN CANVAS</p><h2 id="canvas-settings-title">Ukuran dan grid</h2></div><button type="button" onclick={() => (showCanvasSettings = false)} aria-label="Tutup">×</button></div>
+				<p class="dialog-helper">Atur ukuran fisik dan ukuran tile. Grid dihitung otomatis, sementara isi canvas lama disesuaikan ke resolusi baru.</p>
+				<div class="size-field-grid"><label><span>Lebar canvas</span><div><input type="number" bind:value={canvasWidthCm} min="0.1" max="100000" step="0.1" /><b>cm</b></div></label><label><span>Tinggi canvas</span><div><input type="number" bind:value={canvasHeightCm} min="0.1" max="100000" step="0.1" /><b>cm</b></div></label></div>
+				<label class="size-field"><span>Ukuran tile persegi</span><div><input type="number" bind:value={canvasCellCm} min="0.1" max="100000" step="0.1" /><b>cm</b></div></label>
+				<div class:invalid={!canvasValidation.valid} class="size-result"><span><small>GRID BARU</small><strong>{canvasValidation.valid ? `${canvasValidation.columns} × ${canvasValidation.rows}` : 'Ukuran tidak pas'}</strong></span><span><small>TOTAL SEL</small><strong>{canvasValidation.valid ? canvasValidation.total.toLocaleString('id-ID') : '—'}</strong></span></div>
+				{#if !canvasValidation.valid}<p class="size-error">{canvasValidation.reason}{#if canvasValidation.suggestionsCm.length} Coba ukuran tile {canvasValidation.suggestionsCm.join(', ')} cm.{/if}</p>{/if}
+				{#if project.sourceImage}<p class="size-note">Jika jumlah atau rasio grid berubah, gunakan Recreate canvas agar gambar sumber dihitung ulang secara presisi.</p>{/if}
+				<div class="dialog-actions"><button class="cancel" type="button" onclick={() => (showCanvasSettings = false)}>Batal</button><button class="apply" type="submit" disabled={!canvasValidation.valid}>Terapkan ukuran</button></div>
+			</form></div>
+		</div>
+	{/if}
 
 	<div class="editor-body">
 		<aside class="left-panel">
@@ -247,4 +304,6 @@
 	.editor-shell{height:100vh;min-height:680px;display:flex;flex-direction:column;background:#e2e0da;color:#202622;overflow:hidden}.editor-header{height:66px;display:flex;align-items:center;gap:16px;padding:0 18px;border-bottom:1px solid #c8c6bf;background:#faf9f5}.back{width:36px;height:36px;border:1px solid #d2d0c9;border-radius:6px;background:white;font-size:18px}.project-name{display:flex;flex-direction:column;border-right:1px solid #d5d2cb;padding-right:20px;min-width:220px}.project-name small,.section-number{font-size:8px;letter-spacing:.16em;font-weight:850;color:#8a8e89}.project-name input{border:0;background:transparent;height:23px;font-size:14px;font-weight:800}.project-metrics{display:flex;align-items:center;gap:11px;color:#646b66;font-size:11px;margin-right:auto}.project-metrics i{width:3px;height:3px;background:#abaea9;border-radius:50%}.save-state{font-size:10px;color:#6b736d;display:flex;align-items:center;gap:7px}.save-state>span{width:7px;height:7px;border-radius:50%;background:#66a56d}.save-state.problem>span{background:#d05b38}.header-export{height:36px;display:flex;align-items:stretch;border:1px solid #c9c7c0;border-radius:6px;background:white;overflow:hidden}.header-export select{min-width:148px;border:0;border-right:1px solid #d6d3cb;background:white;padding:0 28px 0 10px;font-size:9px;font-weight:750;color:#353b37}.header-export button{min-width:88px;border:0;background:var(--accent);color:white;padding:0 11px;font-size:9px;font-weight:850}.header-export button span{margin-left:8px;font-size:13px}.header-export select:disabled,.header-export button:disabled{opacity:.65}.history-buttons{display:flex}.history-buttons button{width:35px;height:34px;border:1px solid #d0cec7;background:white;font-size:17px}.history-buttons button:disabled{opacity:.35}.editor-body{display:grid;grid-template-columns:300px minmax(420px,1fr) 300px;min-height:0;flex:1}.left-panel,.right-panel{background:#f9f8f4;overflow-y:auto}.left-panel{border-right:1px solid #c9c7c0}.right-panel{border-left:1px solid #c9c7c0}.panel-tabs{display:none;grid-template-columns:1fr 1fr;height:48px;border-bottom:1px solid #d6d3cb}.panel-tabs button{border:0;background:transparent;font-size:10px;font-weight:800;text-transform:uppercase;position:relative}.panel-tabs button.active:after{content:"";height:2px;position:absolute;bottom:0;left:20px;right:20px;background:var(--accent)}.left-panel section,.palette-section{padding:23px 20px 35px}.mobile-palette{display:none}.left-panel h2,.right-panel h2{font-size:20px;letter-spacing:-.04em;margin:5px 0 17px}.upload-zone{height:140px;border:1px dashed #b8bbb5;background:#eeece6;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:14px;overflow:hidden;position:relative;cursor:pointer}.upload-zone img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.upload-zone>span{position:absolute;bottom:9px;background:rgba(31,37,34,.82);color:white;padding:6px 9px;border-radius:5px;font-size:9px;font-weight:750}.upload-zone b{font-size:26px;color:var(--accent)}.upload-zone strong{font-size:12px}.upload-zone small{font-size:9px;color:#858b86}.segmented{display:grid;grid-template-columns:1fr 1fr;margin-bottom:10px}.segmented button{height:34px;border:1px solid #c9c7c0;background:white;font-size:9px;font-weight:800}.segmented button.active{background:var(--forest);border-color:var(--forest);color:white}.fit-preview{height:160px;display:grid;place-items:center;background:repeating-conic-gradient(#ddd 0 25%,#f4f2ed 0 50%) 50%/12px 12px;border:1px solid #c7c5be;border-radius:7px;margin-bottom:14px;overflow:hidden}.fit-preview img{width:100%;height:100%;object-fit:contain}.control-label{display:block;margin:0 0 13px}.control-label>span{display:block;margin-bottom:6px;font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:#6b726d}.control-label select,.control-label input{width:100%;height:38px;border:1px solid #cfcdc6;background:white;border-radius:6px;padding:0 9px;font-size:10px}.stale{padding:9px;border:1px solid #e3c79c;border-radius:6px;background:#fff7e8;color:#6d542d;font-size:9px;line-height:1.45}.conversion-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}.conversion-actions button,.recreate-inline{min-height:38px;border-radius:6px;font-size:8px;font-weight:800}.conversion-actions .secondary{border:1px solid #b8c8c0;background:white;color:#315447}.conversion-actions .primary,.recreate-inline{border:0;background:var(--forest);color:white}.progress{display:flex;gap:9px;align-items:center;background:#edf3f1;padding:10px;margin-top:10px;font-size:10px}.progress i{width:12px;height:12px;border:2px solid #91aca0;border-top-color:#315447;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.helper{font-size:10px;color:#747b76;line-height:1.5}.palette-empty{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px dashed #c9c7c0;border-radius:7px;color:#747a75;font-size:9px}.palette-empty strong{color:#303632}.palette-list{display:flex;flex-direction:column;gap:7px;margin-top:10px}.palette-row{display:grid;grid-template-columns:minmax(75px,1fr) 28px 74px 25px;align-items:center;border:1px solid #d7d4cd;border-radius:6px;background:white}.palette-row.chosen{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}.color-choice{border:0;background:transparent;display:flex;align-items:center;gap:7px;text-align:left;padding:6px;min-width:0}.color-choice>span:first-child{width:27px;height:27px;flex:0 0 auto;background:var(--color);border:1px solid rgba(0,0,0,.16)}.color-choice>span:last-child{min-width:0;display:flex;flex-direction:column}.color-choice strong{font-size:8px}.color-choice small{font-size:7px;color:#7c827e}.native-color{width:24px;height:24px;border:0;padding:0;background:transparent}.hex-input{width:70px;height:28px;border:1px solid #d0cec7;border-radius:4px;padding:0 5px;font:700 8px ui-monospace}.delete-color{border:0;background:transparent;color:#9b4e3a;font-size:16px}.add-color{display:grid;grid-template-columns:1fr 105px;gap:6px;margin-top:12px}.add-color input{height:36px;border:1px solid #cfcdc6;border-radius:6px;padding:0 9px;font:700 10px ui-monospace}.add-color button{border:0;border-radius:6px;background:var(--forest);color:white;font-size:8px;font-weight:800}.recreate-inline{width:100%;margin-top:9px}.palette-totals{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid #d4d1ca}.palette-totals span{display:flex;flex-direction:column;gap:3px}.palette-totals small{font-size:7px;letter-spacing:.12em;color:#858a86}.palette-totals strong{font:700 16px Georgia;color:var(--forest)}.canvas-column{min-width:0;display:grid;grid-template-rows:49px minmax(0,1fr) 72px}.canvas-toolbar{display:flex;justify-content:space-between;align-items:center;padding:0 12px;background:#f5f3ee;border-bottom:1px solid #c8c6bf}.tool-group{display:flex;height:100%}.tool-group button{width:56px;border:0;border-right:1px solid #dbd8d1;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#656c67}.tool-group button b{font-size:15px}.tool-group button span{font-size:7px;text-transform:uppercase;font-weight:800}.tool-group button.active{color:white;background:var(--forest)}.tool-group button:disabled{opacity:.3}.view-controls{display:flex;align-items:center;gap:5px}.view-controls label{font-size:9px}.view-controls button{height:27px;min-width:29px;border:1px solid #d0cec7;background:white;border-radius:4px}.view-controls span{font-size:9px;width:38px;text-align:center}.canvas-wrap{min-height:0}.palette-strip{display:flex;align-items:stretch;border-top:1px solid #c4c2bb;background:#f8f7f3;padding:9px 12px;gap:14px}.palette-meta{width:110px;display:flex;flex-direction:column;justify-content:center}.palette-meta small{font-size:7px;letter-spacing:.1em}.palette-meta strong{font:700 10px ui-monospace;margin-top:4px}.strip-scroll{display:flex;gap:5px;overflow-x:auto}.strip-scroll button{min-width:47px;border:1px solid #d2d0c9;border-radius:5px;background:white;display:grid;grid-template-columns:18px 1fr;align-items:center;padding:4px}.strip-scroll button.active{border-color:var(--cyan)}.strip-scroll i{width:18px;height:34px;background:var(--color)}.strip-scroll span,.strip-scroll small{font-size:7px}.open-palette{border:1px dashed #aaa;background:transparent;border-radius:6px;font-size:9px}.toast{position:fixed;z-index:60;left:50%;bottom:18px;transform:translateX(-50%);padding:10px 13px;border-radius:6px;color:white;font-size:10px;font-weight:750}.toast.success{background:#315447}.toast.error{background:#963f27;display:flex;gap:12px}.toast button{border:0;background:transparent;color:white}@media(max-width:1100px){.editor-body{grid-template-columns:280px minmax(380px,1fr)}.right-panel{display:none}.panel-tabs{display:grid}.mobile-palette{display:block}.import-panel.mobile-hidden{display:none}}@media(max-width:760px){.editor-shell{height:auto;min-height:100vh;overflow:auto}.editor-header{position:sticky;top:0;z-index:20}.project-metrics,.save-state{display:none}.editor-body{display:flex;flex-direction:column}.left-panel{order:2;max-height:none}.canvas-column{height:70vh;order:1}.palette-strip{overflow:hidden}.editor-header{gap:8px;padding:0 10px}.project-name{min-width:0;flex:1;padding-right:8px}.project-name input{width:100%}.header-export select{min-width:0;width:112px}.header-export button{min-width:68px;padding:0 7px}.history-buttons{display:none}}@media(max-width:520px){.header-export select{width:44px;color:transparent;padding:0}.header-export select:focus{width:112px;color:#353b37;padding-left:8px}.header-export button{min-width:64px}.project-name small{display:none}}
 	@media(max-width:520px){.header-export select,.header-export select:focus{width:90px;color:#353b37;padding:0 20px 0 7px}.header-export button{min-width:60px}.project-name small{display:none}}
 	.canvas-wrap{min-width:0;overflow:hidden}
+	.project-metrics{border:0;background:transparent;padding:7px 9px;border-radius:6px;cursor:pointer}.project-metrics:hover,.project-metrics:focus-visible{background:#eeece6;outline:none}.project-metrics b{font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-left:3px}.canvas-settings-layer{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:18px}.canvas-settings-backdrop{position:absolute;inset:0;width:100%;height:100%;border:0;background:rgba(24,29,26,.48);backdrop-filter:blur(3px)}.canvas-settings-dialog{position:relative;width:min(440px,100%);border:1px solid #c7c4bc;border-radius:10px;background:#fbfaf7;padding:24px;box-shadow:0 24px 70px rgba(23,28,25,.28)}.dialog-heading{display:flex;align-items:flex-start;justify-content:space-between}.dialog-heading h2{font-size:25px;letter-spacing:-.05em;margin:5px 0 0}.dialog-heading>button{width:32px;height:32px;border:1px solid #d1cec6;border-radius:6px;background:white;color:#5f6661;font-size:19px}.dialog-helper{font-size:10px;line-height:1.55;color:#727973;margin:12px 0 18px}.size-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.size-field-grid label,.size-field{display:block;margin-bottom:12px}.size-field-grid label>span,.size-field>span{display:block;margin-bottom:6px;font-size:8px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:#626a65}.size-field-grid label>div,.size-field>div{position:relative}.size-field-grid input,.size-field input{width:100%;height:41px;border:1px solid #d0cec7;border-radius:6px;background:white;padding:0 42px 0 10px;font-size:11px;font-weight:700}.size-field-grid b,.size-field b{position:absolute;right:11px;top:14px;font-size:8px;color:#858b86}.size-result{display:grid;grid-template-columns:1fr 1fr;border:1px solid #c5d5cd;border-radius:7px;background:#edf3f0;margin-top:3px}.size-result>span{display:flex;flex-direction:column;gap:4px;padding:12px}.size-result>span+span{border-left:1px solid #c5d5cd}.size-result small{font-size:7px;letter-spacing:.13em;font-weight:850;color:#718078}.size-result strong{font:700 19px Georgia;color:var(--forest)}.size-result.invalid{border-color:#e8bba8;background:#fff3ed}.size-error,.size-note{font-size:9px;line-height:1.5}.size-error{color:#9b472d}.size-note{padding:9px;border-radius:6px;background:#fff6e6;color:#765c30}.dialog-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:18px}.dialog-actions button{height:41px;border-radius:6px;font-size:9px;font-weight:850}.dialog-actions .cancel{border:1px solid #cbc9c2;background:white;color:#5e6560}.dialog-actions .apply{border:0;background:var(--forest);color:white}.dialog-actions .apply:disabled{opacity:.42}
+	@media(max-width:760px){.project-metrics{display:flex;width:38px;height:36px;flex:0 0 auto;margin-right:0;padding:0;justify-content:center;border:1px solid #d0cec7;background:white}.project-metrics span,.project-metrics i{display:none}.project-metrics b{font-size:0;margin:0}.project-metrics b:before{content:"▦";font-size:16px}.canvas-settings-dialog{padding:20px}.size-field-grid{grid-template-columns:1fr}}
 </style>

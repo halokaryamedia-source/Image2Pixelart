@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cmToMm, floodFillIndices, lineIndices, validateGridMm } from './grid';
+import { cmToMm, floodFillIndices, lineIndices, resizeGridCells, validateGridMm } from './grid';
 
 describe('grid math', () => {
 	it('creates an exact 24 x 48 grid for 120 x 240 cm with 5 cm tiles', () => {
@@ -27,5 +27,10 @@ describe('grid math', () => {
 
 	it('interpolates a continuous diagonal stroke', () => {
 		expect([...lineIndices(0, 8, 3)]).toEqual([0, 4, 8]);
+	});
+
+	it('resamples existing cells when the grid resolution changes', () => {
+		const resized = resizeGridCells(Uint16Array.from([0, 1, 2, 3]), 2, 2, 4, 2);
+		expect([...resized]).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
 	});
 });
