@@ -22,6 +22,13 @@ describe('project schema v2', () => {
 		expect(restored.sourceImage?.name).toBe('source.png');
 	});
 
+	it('round trips an overscan crop used to create empty canvas margins', () => {
+		const project = createProject({ name: 'Margin', widthMm: 100, heightMm: 100, cellMm: 10 });
+		project.importSettings.crop = { x: -0.25, y: -0.5, width: 1.5, height: 2 };
+		const restored = deserializeProject(serializeProject(project));
+		expect(restored.importSettings.crop).toEqual(project.importSettings.crop);
+	});
+
 	it('migrates schema v1 palette and placement without changing cells', () => {
 		const raw = {
 			schemaVersion: 1, id: 'legacy', name: 'Legacy', widthMm: 100, heightMm: 100, cellMm: 50, columns: 2, rows: 2,

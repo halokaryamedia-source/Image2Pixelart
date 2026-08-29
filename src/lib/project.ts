@@ -26,8 +26,8 @@ function parseCrop(value: unknown): CropRect | null {
 	if (!isRecord(value)) throw new Error('Area crop file proyek tidak valid.');
 	const crop = { x: Number(value.x), y: Number(value.y), width: Number(value.width), height: Number(value.height) };
 	if (![crop.x, crop.y, crop.width, crop.height].every(Number.isFinite)
-		|| crop.x < 0 || crop.y < 0 || crop.width <= 0 || crop.height <= 0
-		|| crop.x + crop.width > 1.000001 || crop.y + crop.height > 1.000001) {
+		|| crop.width <= 0 || crop.height <= 0 || crop.width > 2.000001 || crop.height > 2.000001
+		|| crop.x >= 1 || crop.y >= 1 || crop.x + crop.width <= 0 || crop.y + crop.height <= 0) {
 		throw new Error('Area crop file proyek tidak valid.');
 	}
 	return crop;

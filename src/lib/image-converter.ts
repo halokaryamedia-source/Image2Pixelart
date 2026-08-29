@@ -1,6 +1,6 @@
 import { analyzeRaster, SAMPLE_SCALE } from '$lib/image-analysis';
 import type { ConversionRequest, ConversionResult, CropRect, ProjectV2 } from '$lib/types';
-import { centeredCropRect } from '$lib/utils/image-crop';
+import { centeredCropRect, cropDestinationRect } from '$lib/utils/image-crop';
 
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 
@@ -61,7 +61,8 @@ async function convertOnMainThread(file: File, request: ConversionRequest): Prom
 		drawing.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
 	} else {
 		const crop = sourceRect(request, image.width, image.height);
-		drawing.drawImage(image, crop.x * image.width, crop.y * image.height, crop.width * image.width, crop.height * image.height, 0, 0, width, height);
+		const destination = cropDestinationRect(crop, width, height);
+		drawing.drawImage(image, destination.x, destination.y, destination.width, destination.height);
 	}
 	const analyzed = analyzeRaster(drawing.getImageData(0, 0, width, height).data, width, request);
 	const result = { ...analyzed, imageWidth: image.width, imageHeight: image.height };

@@ -2,7 +2,7 @@
 
 import { analyzeRaster, SAMPLE_SCALE } from '../image-analysis';
 import type { ConversionRequest, ConversionResult, CropRect } from '../types';
-import { centeredCropRect } from '../utils/image-crop';
+import { centeredCropRect, cropDestinationRect } from '../utils/image-crop';
 
 const context: DedicatedWorkerGlobalScope = self as unknown as DedicatedWorkerGlobalScope;
 
@@ -36,7 +36,8 @@ async function convert(request: ConversionRequest): Promise<ConversionResult> {
 		drawing.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
 	} else {
 		const crop = sourceRect(request, image.width, image.height);
-		drawing.drawImage(image, crop.x * image.width, crop.y * image.height, crop.width * image.width, crop.height * image.height, 0, 0, width, height);
+		const destination = cropDestinationRect(crop, width, height);
+		drawing.drawImage(image, destination.x, destination.y, destination.width, destination.height);
 	}
 	image.close();
 	const analyzed = analyzeRaster(drawing.getImageData(0, 0, width, height).data, width, request);
