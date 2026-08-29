@@ -30,8 +30,9 @@
 	let panning = $state(false);
 	let panOrigin = { x: 0, y: 0, left: 0, top: 0 };
 	const ruler = 34;
+	const canvasPadding = 26;
 	const maxCanvasEdge = 16_000;
-	let fitCell = $derived(Math.max(1.5, Math.min(26, (viewportWidth - ruler - 34) / project.columns, (viewportHeight - ruler - 34) / project.rows)));
+	let fitCell = $derived(Math.max(1.5, Math.min(26, (viewportWidth - ruler - canvasPadding * 2 - 1) / project.columns, (viewportHeight - ruler - canvasPadding * 2 - 1) / project.rows)));
 	let cellSize = $derived(Math.max(0.5, Math.min(fitCell * zoom, (maxCanvasEdge - ruler - 1) / Math.max(project.columns, project.rows))));
 
 	onMount(() => {
@@ -247,4 +248,5 @@
 
 <style>
 	.canvas-scroller{position:relative;width:100%;height:100%;overflow:auto;overscroll-behavior:contain;background:#dcdad3;background-image:radial-gradient(#c7c4bb 1px,transparent 1px);background-size:18px 18px;cursor:crosshair}.canvas-scroller.dragging{cursor:grabbing}.canvas-pad{min-width:100%;min-height:100%;padding:26px;display:grid;place-items:center;width:max-content;height:max-content}canvas{display:block;box-shadow:0 10px 30px rgba(31,37,34,.16);touch-action:none;background:#f9f8f4}canvas:focus-visible{outline:3px solid rgba(242,106,61,.55);outline-offset:4px}.coordinate-chip{position:sticky;left:16px;bottom:14px;margin:-46px 0 14px 16px;width:max-content;display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid rgba(31,37,34,.16);border-radius:6px;background:rgba(251,250,247,.94);backdrop-filter:blur(8px);font:600 10px ui-monospace,monospace;color:#606661;pointer-events:none}.coordinate-chip span{width:12px;height:12px;border:1px solid rgba(0,0,0,.16);background:var(--chip)}.coordinate-chip b{color:#262c28;font-weight:750;margin-left:3px}
+	.canvas-scroller{min-width:0;max-width:100%;box-sizing:border-box}.canvas-pad{box-sizing:border-box}
 </style>
