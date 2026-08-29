@@ -10,6 +10,22 @@ export type ProjectPaletteEntry = {
 	hex: string;
 };
 
+export type GlobalPaletteColor = {
+	id: string;
+	name?: string;
+	hex: string;
+	usage?: string;
+};
+
+export type GlobalPalette = {
+	id: string;
+	name: string;
+	colors: GlobalPaletteColor[];
+	builtIn: boolean;
+	createdAt: string;
+	updatedAt: string;
+};
+
 export type CropRect = {
 	x: number;
 	y: number;
@@ -42,6 +58,7 @@ export type ProjectV2 = {
 	columns: number;
 	rows: number;
 	palette: ProjectPaletteEntry[];
+	suggestedPalette?: ProjectPaletteEntry[];
 	cells: Uint16Array;
 	importSettings: ImportSettings;
 	sourceImage?: SourceImage;

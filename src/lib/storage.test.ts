@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import 'fake-indexeddb/auto';
 import { createProject } from '$lib/project';
+import { createGlobalPalette, DEFAULT_GLOBAL_PALETTE_ID } from '$lib/global-palettes';
 import { EMPTY_CELL } from '$lib/types';
-import { deleteProject, loadProjects, saveProject } from './storage';
+import { deleteGlobalPalette, deleteProject, loadGlobalPalettes, loadProjects, saveGlobalPalette, saveProject } from './storage';
 
 describe('IndexedDB project persistence', () => {
 	beforeEach(async () => {
 		for (const project of await loadProjects()) await deleteProject(project.id);
+		for (const palette of await loadGlobalPalettes()) if (!palette.builtIn) await deleteGlobalPalette(palette.id);
 	});
 
 	it('preserves empty cells, local palette, settings, and source image', async () => {
@@ -29,5 +31,15 @@ describe('IndexedDB project persistence', () => {
 		expect(() => structuredClone(proxied)).toThrow();
 		await expect(saveProject(proxied)).resolves.toBeUndefined();
 		expect((await loadProjects()).some((entry) => entry.id === project.id)).toBe(true);
+	});
+
+	it('seeds one immutable default palette and persists user palettes', async () => {
+		const initial = await loadGlobalPalettes();
+		expect(initial.filter((palette) => palette.id === DEFAULT_GLOBAL_PALETTE_ID)).toHaveLength(1);
+		expect(initial[0].colors.map((color) => color.hex)).toEqual(['#101418', '#343B40', '#737C80', '#E8ECE8', '#2AA6B4', '#397A20', '#744126', '#B78850']);
+		const custom = createGlobalPalette('Suggestion lobby', ['#112233', '#AABBCC']);
+		await saveGlobalPalette(custom);
+		expect((await loadGlobalPalettes()).find((palette) => palette.id === custom.id)?.colors).toEqual(custom.colors);
+		await expect(deleteGlobalPalette(DEFAULT_GLOBAL_PALETTE_ID)).rejects.toThrow('tidak dapat dihapus');
 	});
 });

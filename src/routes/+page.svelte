@@ -2,11 +2,13 @@
 	import { onMount } from 'svelte';
 	import HomeView from '$lib/components/HomeView.svelte';
 	import EditorView from '$lib/components/EditorView.svelte';
-	import type { ProjectV2 } from '$lib/types';
+	import { createGlobalPalette } from '$lib/global-palettes';
+	import type { GlobalPalette, ProjectV2 } from '$lib/types';
 	import { cloneProject, createProject, deserializeProject } from '$lib/project';
-	import { deleteProject, loadProjects, saveProject } from '$lib/storage';
+	import { deleteGlobalPalette, deleteProject, loadGlobalPalettes, loadProjects, saveGlobalPalette, saveProject } from '$lib/storage';
 
 	let projects = $state<ProjectV2[]>([]);
+	let globalPalettes = $state<GlobalPalette[]>([]);
 	let activeProject = $state<ProjectV2 | null>(null);
 	let ready = $state(false);
 	let saveState = $state<'saved' | 'saving' | 'error'>('saved');
@@ -25,7 +27,7 @@
 	});
 
 	async function initialize() {
-		try { projects = await loadProjects(); }
+		try { [projects, globalPalettes] = await Promise.all([loadProjects(), loadGlobalPalettes()]); }
 		catch (error) { startupError = error instanceof Error ? error.message : 'Penyimpanan lokal tidak tersedia.'; }
 		finally { ready = true; }
 	}
@@ -81,10 +83,21 @@
 			await saveProject(project); projects = [project, ...projects]; activeProject = project;
 		} catch (error) { startupError = error instanceof Error ? error.message : 'File proyek tidak dapat dibuka.'; }
 	}
+
+	async function addGlobalPalette(input: { name: string; hexes: string[] }) {
+		const palette = createGlobalPalette(input.name, input.hexes);
+		await saveGlobalPalette(palette);
+		globalPalettes = [...globalPalettes, palette].sort((left, right) => Number(right.builtIn) - Number(left.builtIn) || right.updatedAt.localeCompare(left.updatedAt));
+	}
+
+	async function removeGlobalPalette(id: string) {
+		await deleteGlobalPalette(id);
+		globalPalettes = globalPalettes.filter((palette) => palette.id !== id);
+	}
 </script>
 
 {#if activeProject}
-	<EditorView project={activeProject} {saveState} onChange={changeProject} onBack={leaveEditor} />
+	<EditorView project={activeProject} {saveState} {globalPalettes} onChange={changeProject} onBack={leaveEditor} onCreateGlobalPalette={addGlobalPalette} onDeleteGlobalPalette={removeGlobalPalette} />
 {:else}
 	<HomeView {projects} {ready} onCreate={createNew} onOpen={openProject} onDelete={removeProject} onImport={importProject} />
 {/if}

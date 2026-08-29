@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import { cloneGlobalPalette, DEFAULT_GLOBAL_PALETTE, DEFAULT_GLOBAL_PALETTE_ID } from '$lib/global-palettes';
 import { cloneProject, migrateStoredProject } from '$lib/project';
-import type { ProjectV2, SourceImage } from '$lib/types';
+import type { GlobalPalette, ProjectV2, SourceImage } from '$lib/types';
 
 type StoredProject = Omit<ProjectV2, 'sourceImage'> | Record<string, unknown>;
 type LegacyCatalogColor = { id: string; name: string; code?: string; hex: string; active: boolean; createdAt: string; updatedAt: string };
@@ -9,6 +10,7 @@ interface MosaicDatabase extends DBSchema {
 	projects: { key: string; value: StoredProject; indexes: { 'by-updated': string } };
 	catalog: { key: string; value: LegacyCatalogColor; indexes: { 'by-name': string } };
 	sourceImages: { key: string; value: SourceImage };
+	globalPalettes: { key: string; value: GlobalPalette; indexes: { 'by-updated': string } };
 }
 
 let databasePromise: Promise<IDBPDatabase<MosaicDatabase>> | undefined;
@@ -16,7 +18,7 @@ const sourceDataUrls = new Map<string, string>();
 
 function database(): Promise<IDBPDatabase<MosaicDatabase>> {
 	if (!databasePromise) {
-		databasePromise = openDB<MosaicDatabase>('mosaic-plan', 2, {
+		databasePromise = openDB<MosaicDatabase>('mosaic-plan', 3, {
 			upgrade(db, oldVersion) {
 				if (oldVersion < 1) {
 					const projects = db.createObjectStore('projects', { keyPath: 'id' });
@@ -25,10 +27,33 @@ function database(): Promise<IDBPDatabase<MosaicDatabase>> {
 					catalog.createIndex('by-name', 'name');
 				}
 				if (oldVersion < 2) db.createObjectStore('sourceImages');
+				if (oldVersion < 3) {
+					const globalPalettes = db.createObjectStore('globalPalettes', { keyPath: 'id' });
+					globalPalettes.createIndex('by-updated', 'updatedAt');
+				}
 			}
 		});
 	}
 	return databasePromise;
+}
+
+export async function loadGlobalPalettes(): Promise<GlobalPalette[]> {
+	const db = await database();
+	await db.put('globalPalettes', cloneGlobalPalette(DEFAULT_GLOBAL_PALETTE));
+	const palettes = await db.getAll('globalPalettes');
+	return palettes
+		.map(cloneGlobalPalette)
+		.sort((left, right) => Number(right.builtIn) - Number(left.builtIn) || right.updatedAt.localeCompare(left.updatedAt));
+}
+
+export async function saveGlobalPalette(palette: GlobalPalette): Promise<void> {
+	if (palette.builtIn || palette.id === DEFAULT_GLOBAL_PALETTE_ID) throw new Error('Palet default tidak dapat ditimpa.');
+	await (await database()).put('globalPalettes', cloneGlobalPalette(palette));
+}
+
+export async function deleteGlobalPalette(id: string): Promise<void> {
+	if (id === DEFAULT_GLOBAL_PALETTE_ID) throw new Error('Palet default tidak dapat dihapus.');
+	await (await database()).delete('globalPalettes', id);
 }
 
 export async function loadProjects(): Promise<ProjectV2[]> {

@@ -4,7 +4,7 @@
 	import { EditHistory } from '$lib/history';
 	import { convertImageFile } from '$lib/image-converter';
 	import { cloneProject, serializeProject } from '$lib/project';
-	import type { CellPatch, EditorTool, ProjectV2 } from '$lib/types';
+	import type { CellPatch, EditorTool, GlobalPalette, ProjectV2 } from '$lib/types';
 	import { EMPTY_CELL } from '$lib/types';
 	import { createProjectPng } from '$lib/export/png';
 	import { downloadBlob, downloadText, fileToDataUrl, safeFileName } from '$lib/utils/download';
@@ -12,10 +12,18 @@
 	import { gridMatrixCsv, materialListCsv } from '$lib/utils/csv';
 	import { normalizeHex } from '$lib/utils/color';
 	import { centeredCropRect } from '$lib/utils/image-crop';
-	import { removePaletteSlot } from '$lib/utils/palette';
+	import { applyPaletteHexes, removePaletteSlot } from '$lib/utils/palette';
 
-	type Props = { project: ProjectV2; saveState: 'saved' | 'saving' | 'error'; onChange: (project: ProjectV2) => void; onBack: () => void };
-	let { project, saveState, onChange, onBack }: Props = $props();
+	type Props = {
+		project: ProjectV2;
+		saveState: 'saved' | 'saving' | 'error';
+		globalPalettes: GlobalPalette[];
+		onChange: (project: ProjectV2) => void;
+		onBack: () => void;
+		onCreateGlobalPalette: (input: { name: string; hexes: string[] }) => Promise<void>;
+		onDeleteGlobalPalette: (id: string) => Promise<void>;
+	};
+	let { project, saveState, globalPalettes, onChange, onBack, onCreateGlobalPalette, onDeleteGlobalPalette }: Props = $props();
 	let tool = $state<EditorTool>('pencil');
 	let activeSlot = $state(-1);
 	let zoom = $state(1);
@@ -24,6 +32,11 @@
 	type ExportFormat = 'pdf' | 'png' | 'png-grid' | 'materials-csv' | 'matrix-csv' | 'project';
 	let exportFormat = $state<ExportFormat>('pdf');
 	let showCanvasSettings = $state(false);
+	let showPaletteLibrary = $state(false);
+	let paletteLibraryView = $state<'library' | 'create'>('library');
+	let paletteDraftName = $state('');
+	let paletteDraftHexes = $state<string[]>(['#000000']);
+	let savingGlobalPalette = $state(false);
 	let canvasWidthCm = $state(1);
 	let canvasHeightCm = $state(1);
 	let canvasCellCm = $state(1);
@@ -47,6 +60,10 @@
 	let emptyCount = $derived(project.cells.length - filledCount);
 	let pageCount = $derived(1 + Math.ceil(project.columns / 24) * Math.ceil(project.rows / 24));
 	let canvasValidation = $derived(validateGridMm(cmToMm(canvasWidthCm), cmToMm(canvasHeightCm), cmToMm(canvasCellCm)));
+	let paletteDraftValid = $derived.by(() => {
+		const normalized = paletteDraftHexes.map((hex) => normalizeHex(hex));
+		return !!paletteDraftName.trim() && normalized.length >= 1 && normalized.length <= 32 && normalized.every(Boolean) && new Set(normalized).size === normalized.length;
+	});
 
 	$effect(() => {
 		if (initializedProject !== project.id) {
@@ -173,6 +190,7 @@
 			const after: ProjectV2 = {
 				...project,
 				palette: result.palette,
+				suggestedPalette: suggestPalette ? result.palette.map((entry) => ({ ...entry })) : project.suggestedPalette,
 				cells: result.cells.slice(),
 				importSettings: { ...project.importSettings, crop },
 				sourceImage: replaceSource ? { name: file.name, type: file.type, dataUrl: dataUrl!, width: result.imageWidth, height: result.imageHeight } : project.sourceImage,
@@ -209,6 +227,54 @@
 		if (project.sourceImage) stale = true;
 	}
 
+	function openGlobalPaletteLibrary() {
+		paletteLibraryView = 'library';
+		showPaletteLibrary = true;
+	}
+
+	function startPaletteDraft(name: string, hexes: string[]) {
+		paletteDraftName = name;
+		paletteDraftHexes = hexes.length ? hexes.slice(0, 32) : ['#000000'];
+		paletteLibraryView = 'create';
+		showPaletteLibrary = true;
+	}
+
+	function setPaletteDraftHex(index: number, value: string) {
+		paletteDraftHexes = paletteDraftHexes.map((hex, candidate) => candidate === index ? value : hex);
+	}
+
+	function removePaletteDraftHex(index: number) {
+		if (paletteDraftHexes.length <= 1) return;
+		paletteDraftHexes = paletteDraftHexes.filter((_, candidate) => candidate !== index);
+	}
+
+	async function savePaletteDraft(event: SubmitEvent) {
+		event.preventDefault();
+		if (!paletteDraftValid || savingGlobalPalette) return;
+		savingGlobalPalette = true; error = null;
+		try {
+			await onCreateGlobalPalette({ name: paletteDraftName, hexes: paletteDraftHexes.map((hex) => normalizeHex(hex)!) });
+			paletteLibraryView = 'library';
+			flash('Palet berhasil ditambahkan ke library global.');
+		} catch (caught) { error = caught instanceof Error ? caught.message : 'Palet global gagal disimpan.'; }
+		finally { savingGlobalPalette = false; }
+	}
+
+	function applyPalette(name: string, hexes: string[]) {
+		const before = cloneProject(project);
+		const mapped = applyPaletteHexes(project.palette, project.cells, hexes);
+		commitStructural(before, { ...project, ...mapped }, `Gunakan palet ${name}`);
+		activeSlot = mapped.palette.length ? Math.min(Math.max(activeSlot, 0), mapped.palette.length - 1) : -1;
+		showPaletteLibrary = false;
+		flash(`Palet “${name}” diterapkan ke canvas.`);
+	}
+
+	async function deleteUserPalette(palette: GlobalPalette) {
+		if (palette.builtIn || !confirm(`Hapus palet global “${palette.name}”?`)) return;
+		try { await onDeleteGlobalPalette(palette.id); flash('Palet global dihapus.'); }
+		catch (caught) { error = caught instanceof Error ? caught.message : 'Palet global gagal dihapus.'; }
+	}
+
 	async function exportPdf() { if (pageCount > 100 && !confirm(`Blueprint ini akan menghasilkan ${pageCount} halaman. Lanjutkan?`)) return; exporting = 'PDF'; error = null; try { const { createProjectPdfInBackground } = await import('$lib/export/pdf-client'); const bytes = await createProjectPdfInBackground(project); downloadBlob(new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' }), `${safeFileName(project.name)}-blueprint.pdf`); flash('Blueprint PDF berhasil dibuat.'); } catch (caught) { error = caught instanceof Error ? caught.message : 'PDF tidak dapat dibuat.'; } finally { exporting = null; } }
 	async function exportPng(blueprint: boolean) { exporting = blueprint ? 'PNG blueprint' : 'PNG'; error = null; try { downloadBlob(await createProjectPng(project, blueprint), `${safeFileName(project.name)}${blueprint ? '-grid' : ''}.png`); flash('PNG berhasil dibuat.'); } catch (caught) { error = caught instanceof Error ? caught.message : 'PNG tidak dapat dibuat.'; } finally { exporting = null; } }
 	function exportMaterialsCsv() { downloadText(materialListCsv(project), `${safeFileName(project.name)}-materials.csv`, 'text/csv;charset=utf-8'); flash('CSV daftar material berhasil dibuat.'); }
@@ -228,8 +294,9 @@
 {#snippet paletteEditor(sectionLabel: string)}
 	<section class="palette-section">
 		<p class="section-number">{sectionLabel}</p>
-		<h2>{project.palette.length} warna aktif</h2>
-		<p class="helper">Edit HEX akan langsung mengubah semua sel pada slot warna yang sama.</p>
+		<div class="palette-section-heading"><div><h2>{project.palette.length} warna aktif</h2><small>PALET PROYEK / SUGGESTION LOKAL</small></div><button type="button" onclick={openGlobalPaletteLibrary}>Library ↗</button></div>
+		<p class="helper">Suggestion tetap tersimpan di proyek. Edit HEX langsung mengubah canvas, atau gunakan library untuk mengganti seluruh palet.</p>
+		<div class="palette-library-actions"><button type="button" onclick={openGlobalPaletteLibrary}>Ganti dari global</button><button type="button" onclick={() => startPaletteDraft(`${project.name} palette`, project.palette.map((entry) => entry.hex))} disabled={project.palette.length === 0}>＋ Simpan ke global</button></div>
 		{#if project.palette.length === 0}<div class="palette-empty"><strong>Belum ada warna</strong><span>Tambah HEX untuk menggambar manual, atau impor gambar untuk suggestion otomatis.</span></div>{/if}
 		<div class="palette-list">{#each project.palette as entry}<div class:chosen={activeSlot === entry.slot} class="palette-row"><button class="color-choice" type="button" onclick={() => (activeSlot = entry.slot)}><span style={`--color:${entry.hex}`}></span><span><strong>{entry.slot + 1}. {entry.hex}</strong><small>{counts[entry.slot]?.toLocaleString('id-ID')} tile</small></span></button><input class="native-color" type="color" value={entry.hex} oninput={(event) => setPaletteHex(entry.id, event.currentTarget.value)} aria-label={`Pilih warna ${entry.hex}`} /><input class="hex-input" value={entry.hex} oninput={(event) => setPaletteHex(entry.id, event.currentTarget.value)} onblur={(event) => (event.currentTarget.value = entry.hex)} aria-label={`HEX warna ${entry.slot + 1}`} /><button class="delete-color" type="button" onclick={() => removeColor(entry.slot)} aria-label={`Hapus ${entry.hex}`}>×</button></div>{/each}</div>
 		<div class="add-color"><input bind:value={newHex} maxlength="7" aria-label="HEX warna baru" /><button type="button" onclick={addPaletteColor} disabled={project.palette.length >= 32}>＋ Tambah HEX</button></div>
@@ -269,6 +336,32 @@
 		</div>
 	{/if}
 
+	{#if showPaletteLibrary}
+		<div class="palette-library-layer">
+			<button class="palette-library-backdrop" type="button" onclick={() => (showPaletteLibrary = false)} aria-label="Tutup library palet"></button>
+			<div class="palette-library-dialog" role="dialog" aria-modal="true" aria-labelledby="palette-library-title">
+				<div class="dialog-heading"><div><p class="section-number">GLOBAL PALETTE LIBRARY</p><h2 id="palette-library-title">{paletteLibraryView === 'library' ? 'Pilih palet' : 'Buat palet sendiri'}</h2></div><button type="button" onclick={() => (showPaletteLibrary = false)} aria-label="Tutup">×</button></div>
+				{#if paletteLibraryView === 'library'}
+					<p class="dialog-helper">Palet proyek dan suggestion tetap lokal. Palet global bisa digunakan ulang di semua proyek pada perangkat ini.</p>
+					<div class="global-palette-list">
+						<article class="global-palette-card project-palette-card"><div class="global-palette-copy"><span><strong>Palet proyek saat ini</strong><small>LOKAL · {project.palette.length} WARNA</small></span><div class="global-swatches">{#each project.palette as color}<i style={`--color:${color.hex}`} title={color.hex}></i>{/each}</div></div><button class="card-secondary" type="button" onclick={() => startPaletteDraft(`${project.name} palette`, project.palette.map((entry) => entry.hex))} disabled={project.palette.length === 0}>Simpan ke global</button></article>
+						{#if project.suggestedPalette?.length}<article class="global-palette-card suggestion-card"><div class="global-palette-copy"><span><strong>Suggestion terakhir</strong><small>TERSIMPAN DI PROYEK · {project.suggestedPalette.length} WARNA</small></span><div class="global-swatches">{#each project.suggestedPalette as color}<i style={`--color:${color.hex}`} title={color.hex}></i>{/each}</div></div><div class="card-actions"><button class="card-secondary" type="button" onclick={() => startPaletteDraft(`${project.name} suggestion`, project.suggestedPalette!.map((entry) => entry.hex))}>Tambah ke global</button><button class="card-apply" type="button" onclick={() => applyPalette('Suggestion terakhir', project.suggestedPalette!.map((entry) => entry.hex))}>Gunakan</button></div></article>{/if}
+						{#each globalPalettes as palette}<article class="global-palette-card"><div class="global-palette-copy"><span><strong>{palette.name}</strong><small>{palette.builtIn ? 'DEFAULT GLOBAL' : 'PALET USER'} · {palette.colors.length} WARNA</small></span><div class="global-swatches detailed">{#each palette.colors as color}<i style={`--color:${color.hex}`} title={[color.name, color.hex, color.usage].filter(Boolean).join(' · ')}></i>{/each}</div>{#if palette.builtIn}<p>Outline gelap, struktur netral, cyan, hijau, cokelat, dan aksen hangat.</p>{/if}</div><div class="card-actions">{#if !palette.builtIn}<button class="card-delete" type="button" onclick={() => deleteUserPalette(palette)}>Hapus</button>{/if}<button class="card-apply" type="button" onclick={() => applyPalette(palette.name, palette.colors.map((color) => color.hex))}>Gunakan</button></div></article>{/each}
+					</div>
+					<button class="create-global-palette" type="button" onclick={() => startPaletteDraft('Palet baru', ['#000000'])}>＋ Buat palet sendiri</button>
+				{:else}
+					<form class="palette-draft-form" onsubmit={savePaletteDraft}>
+						<label class="draft-name"><span>Nama palet</span><input bind:value={paletteDraftName} maxlength="80" /></label>
+						<div class="draft-colors">{#each paletteDraftHexes as hex, index}<div class="draft-color-row"><input type="color" value={normalizeHex(hex) ?? '#000000'} oninput={(event) => setPaletteDraftHex(index, event.currentTarget.value.toUpperCase())} aria-label={`Pilih warna ${index + 1}`} /><input value={hex} maxlength="7" oninput={(event) => setPaletteDraftHex(index, event.currentTarget.value)} onblur={(event) => { const normalized = normalizeHex(event.currentTarget.value); if (normalized) setPaletteDraftHex(index, normalized); }} aria-label={`HEX warna ${index + 1}`} /><button type="button" onclick={() => removePaletteDraftHex(index)} disabled={paletteDraftHexes.length <= 1} aria-label={`Hapus warna ${index + 1}`}>×</button></div>{/each}</div>
+						<button class="add-draft-color" type="button" onclick={() => (paletteDraftHexes = [...paletteDraftHexes, '#000000'])} disabled={paletteDraftHexes.length >= 32}>＋ Tambah warna</button>
+						{#if !paletteDraftValid}<p class="draft-error">Isi nama, gunakan 1–32 HEX valid, dan hindari warna duplikat.</p>{/if}
+						<div class="dialog-actions"><button class="cancel" type="button" onclick={() => (paletteLibraryView = 'library')}>Kembali</button><button class="apply" type="submit" disabled={!paletteDraftValid || savingGlobalPalette}>{savingGlobalPalette ? 'Menyimpan…' : 'Simpan ke global'}</button></div>
+					</form>
+				{/if}
+			</div>
+		</div>
+	{/if}
+
 	<div class="editor-body">
 		<aside class="left-panel">
 			<div class="panel-tabs"><button class:active={panel === 'import'} onclick={() => (panel = 'import')} type="button">Import</button><button class:active={panel === 'palette'} onclick={() => (panel = 'palette')} type="button">Palette</button></div>
@@ -304,6 +397,8 @@
 	.editor-shell{height:100vh;min-height:680px;display:flex;flex-direction:column;background:#e2e0da;color:#202622;overflow:hidden}.editor-header{height:66px;display:flex;align-items:center;gap:16px;padding:0 18px;border-bottom:1px solid #c8c6bf;background:#faf9f5}.back{width:36px;height:36px;border:1px solid #d2d0c9;border-radius:6px;background:white;font-size:18px}.project-name{display:flex;flex-direction:column;border-right:1px solid #d5d2cb;padding-right:20px;min-width:220px}.project-name small,.section-number{font-size:8px;letter-spacing:.16em;font-weight:850;color:#8a8e89}.project-name input{border:0;background:transparent;height:23px;font-size:14px;font-weight:800}.project-metrics{display:flex;align-items:center;gap:11px;color:#646b66;font-size:11px;margin-right:auto}.project-metrics i{width:3px;height:3px;background:#abaea9;border-radius:50%}.save-state{font-size:10px;color:#6b736d;display:flex;align-items:center;gap:7px}.save-state>span{width:7px;height:7px;border-radius:50%;background:#66a56d}.save-state.problem>span{background:#d05b38}.header-export{height:36px;display:flex;align-items:stretch;border:1px solid #c9c7c0;border-radius:6px;background:white;overflow:hidden}.header-export select{min-width:148px;border:0;border-right:1px solid #d6d3cb;background:white;padding:0 28px 0 10px;font-size:9px;font-weight:750;color:#353b37}.header-export button{min-width:88px;border:0;background:var(--accent);color:white;padding:0 11px;font-size:9px;font-weight:850}.header-export button span{margin-left:8px;font-size:13px}.header-export select:disabled,.header-export button:disabled{opacity:.65}.history-buttons{display:flex}.history-buttons button{width:35px;height:34px;border:1px solid #d0cec7;background:white;font-size:17px}.history-buttons button:disabled{opacity:.35}.editor-body{display:grid;grid-template-columns:300px minmax(420px,1fr) 300px;min-height:0;flex:1}.left-panel,.right-panel{background:#f9f8f4;overflow-y:auto}.left-panel{border-right:1px solid #c9c7c0}.right-panel{border-left:1px solid #c9c7c0}.panel-tabs{display:none;grid-template-columns:1fr 1fr;height:48px;border-bottom:1px solid #d6d3cb}.panel-tabs button{border:0;background:transparent;font-size:10px;font-weight:800;text-transform:uppercase;position:relative}.panel-tabs button.active:after{content:"";height:2px;position:absolute;bottom:0;left:20px;right:20px;background:var(--accent)}.left-panel section,.palette-section{padding:23px 20px 35px}.mobile-palette{display:none}.left-panel h2,.right-panel h2{font-size:20px;letter-spacing:-.04em;margin:5px 0 17px}.upload-zone{height:140px;border:1px dashed #b8bbb5;background:#eeece6;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:14px;overflow:hidden;position:relative;cursor:pointer}.upload-zone img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.upload-zone>span{position:absolute;bottom:9px;background:rgba(31,37,34,.82);color:white;padding:6px 9px;border-radius:5px;font-size:9px;font-weight:750}.upload-zone b{font-size:26px;color:var(--accent)}.upload-zone strong{font-size:12px}.upload-zone small{font-size:9px;color:#858b86}.segmented{display:grid;grid-template-columns:1fr 1fr;margin-bottom:10px}.segmented button{height:34px;border:1px solid #c9c7c0;background:white;font-size:9px;font-weight:800}.segmented button.active{background:var(--forest);border-color:var(--forest);color:white}.fit-preview{height:160px;display:grid;place-items:center;background:repeating-conic-gradient(#ddd 0 25%,#f4f2ed 0 50%) 50%/12px 12px;border:1px solid #c7c5be;border-radius:7px;margin-bottom:14px;overflow:hidden}.fit-preview img{width:100%;height:100%;object-fit:contain}.control-label{display:block;margin:0 0 13px}.control-label>span{display:block;margin-bottom:6px;font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:#6b726d}.control-label select,.control-label input{width:100%;height:38px;border:1px solid #cfcdc6;background:white;border-radius:6px;padding:0 9px;font-size:10px}.stale{padding:9px;border:1px solid #e3c79c;border-radius:6px;background:#fff7e8;color:#6d542d;font-size:9px;line-height:1.45}.conversion-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}.conversion-actions button,.recreate-inline{min-height:38px;border-radius:6px;font-size:8px;font-weight:800}.conversion-actions .secondary{border:1px solid #b8c8c0;background:white;color:#315447}.conversion-actions .primary,.recreate-inline{border:0;background:var(--forest);color:white}.progress{display:flex;gap:9px;align-items:center;background:#edf3f1;padding:10px;margin-top:10px;font-size:10px}.progress i{width:12px;height:12px;border:2px solid #91aca0;border-top-color:#315447;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.helper{font-size:10px;color:#747b76;line-height:1.5}.palette-empty{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px dashed #c9c7c0;border-radius:7px;color:#747a75;font-size:9px}.palette-empty strong{color:#303632}.palette-list{display:flex;flex-direction:column;gap:7px;margin-top:10px}.palette-row{display:grid;grid-template-columns:minmax(75px,1fr) 28px 74px 25px;align-items:center;border:1px solid #d7d4cd;border-radius:6px;background:white}.palette-row.chosen{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}.color-choice{border:0;background:transparent;display:flex;align-items:center;gap:7px;text-align:left;padding:6px;min-width:0}.color-choice>span:first-child{width:27px;height:27px;flex:0 0 auto;background:var(--color);border:1px solid rgba(0,0,0,.16)}.color-choice>span:last-child{min-width:0;display:flex;flex-direction:column}.color-choice strong{font-size:8px}.color-choice small{font-size:7px;color:#7c827e}.native-color{width:24px;height:24px;border:0;padding:0;background:transparent}.hex-input{width:70px;height:28px;border:1px solid #d0cec7;border-radius:4px;padding:0 5px;font:700 8px ui-monospace}.delete-color{border:0;background:transparent;color:#9b4e3a;font-size:16px}.add-color{display:grid;grid-template-columns:1fr 105px;gap:6px;margin-top:12px}.add-color input{height:36px;border:1px solid #cfcdc6;border-radius:6px;padding:0 9px;font:700 10px ui-monospace}.add-color button{border:0;border-radius:6px;background:var(--forest);color:white;font-size:8px;font-weight:800}.recreate-inline{width:100%;margin-top:9px}.palette-totals{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid #d4d1ca}.palette-totals span{display:flex;flex-direction:column;gap:3px}.palette-totals small{font-size:7px;letter-spacing:.12em;color:#858a86}.palette-totals strong{font:700 16px Georgia;color:var(--forest)}.canvas-column{min-width:0;display:grid;grid-template-rows:49px minmax(0,1fr) 72px}.canvas-toolbar{display:flex;justify-content:space-between;align-items:center;padding:0 12px;background:#f5f3ee;border-bottom:1px solid #c8c6bf}.tool-group{display:flex;height:100%}.tool-group button{width:56px;border:0;border-right:1px solid #dbd8d1;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#656c67}.tool-group button b{font-size:15px}.tool-group button span{font-size:7px;text-transform:uppercase;font-weight:800}.tool-group button.active{color:white;background:var(--forest)}.tool-group button:disabled{opacity:.3}.view-controls{display:flex;align-items:center;gap:5px}.view-controls label{font-size:9px}.view-controls button{height:27px;min-width:29px;border:1px solid #d0cec7;background:white;border-radius:4px}.view-controls span{font-size:9px;width:38px;text-align:center}.canvas-wrap{min-height:0}.palette-strip{display:flex;align-items:stretch;border-top:1px solid #c4c2bb;background:#f8f7f3;padding:9px 12px;gap:14px}.palette-meta{width:110px;display:flex;flex-direction:column;justify-content:center}.palette-meta small{font-size:7px;letter-spacing:.1em}.palette-meta strong{font:700 10px ui-monospace;margin-top:4px}.strip-scroll{display:flex;gap:5px;overflow-x:auto}.strip-scroll button{min-width:47px;border:1px solid #d2d0c9;border-radius:5px;background:white;display:grid;grid-template-columns:18px 1fr;align-items:center;padding:4px}.strip-scroll button.active{border-color:var(--cyan)}.strip-scroll i{width:18px;height:34px;background:var(--color)}.strip-scroll span,.strip-scroll small{font-size:7px}.open-palette{border:1px dashed #aaa;background:transparent;border-radius:6px;font-size:9px}.toast{position:fixed;z-index:60;left:50%;bottom:18px;transform:translateX(-50%);padding:10px 13px;border-radius:6px;color:white;font-size:10px;font-weight:750}.toast.success{background:#315447}.toast.error{background:#963f27;display:flex;gap:12px}.toast button{border:0;background:transparent;color:white}@media(max-width:1100px){.editor-body{grid-template-columns:280px minmax(380px,1fr)}.right-panel{display:none}.panel-tabs{display:grid}.mobile-palette{display:block}.import-panel.mobile-hidden{display:none}}@media(max-width:760px){.editor-shell{height:auto;min-height:100vh;overflow:auto}.editor-header{position:sticky;top:0;z-index:20}.project-metrics,.save-state{display:none}.editor-body{display:flex;flex-direction:column}.left-panel{order:2;max-height:none}.canvas-column{height:70vh;order:1}.palette-strip{overflow:hidden}.editor-header{gap:8px;padding:0 10px}.project-name{min-width:0;flex:1;padding-right:8px}.project-name input{width:100%}.header-export select{min-width:0;width:112px}.header-export button{min-width:68px;padding:0 7px}.history-buttons{display:none}}@media(max-width:520px){.header-export select{width:44px;color:transparent;padding:0}.header-export select:focus{width:112px;color:#353b37;padding-left:8px}.header-export button{min-width:64px}.project-name small{display:none}}
 	@media(max-width:520px){.header-export select,.header-export select:focus{width:90px;color:#353b37;padding:0 20px 0 7px}.header-export button{min-width:60px}.project-name small{display:none}}
 	.canvas-wrap{min-width:0;overflow:hidden}
+	.palette-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.palette-section-heading h2{margin-bottom:2px}.palette-section-heading small{font-size:7px;letter-spacing:.1em;color:#858a86;font-weight:800}.palette-section-heading>button{border:0;background:transparent;color:var(--accent);font-size:8px;font-weight:850;padding:8px 0}.palette-library-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:12px 0}.palette-library-actions button{min-height:35px;border:1px solid #c9c7c0;border-radius:6px;background:white;color:#45504a;font-size:8px;font-weight:850}.palette-library-actions button:last-child{border-color:#b8c9c1;color:var(--forest)}.palette-library-actions button:disabled{opacity:.4}
+	.palette-library-layer{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:18px}.palette-library-backdrop{position:absolute;inset:0;width:100%;height:100%;border:0;background:rgba(24,29,26,.52);backdrop-filter:blur(4px)}.palette-library-dialog{position:relative;width:min(650px,100%);max-height:calc(100vh - 36px);overflow:auto;border:1px solid #c7c4bc;border-radius:11px;background:#fbfaf7;padding:24px;box-shadow:0 24px 75px rgba(23,28,25,.32)}.global-palette-list{display:flex;flex-direction:column;gap:8px}.global-palette-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:13px;border:1px solid #d4d1ca;border-radius:8px;background:white}.project-palette-card{border-color:#b9ccc3;background:#f0f5f2}.suggestion-card{border-color:#c8dbe0;background:#f0f7f8}.global-palette-copy{min-width:0}.global-palette-copy>span{display:flex;align-items:baseline;gap:8px}.global-palette-copy strong{font-size:11px}.global-palette-copy small{font-size:7px;letter-spacing:.09em;color:#7c827e;font-weight:850}.global-palette-copy p{font-size:8px;color:#747a75;margin:7px 0 0}.global-swatches{display:flex;gap:4px;overflow:hidden;margin-top:9px}.global-swatches i{width:24px;height:24px;flex:0 0 auto;border:1px solid rgba(0,0,0,.14);border-radius:4px;background:var(--color)}.global-swatches.detailed i{width:28px;height:28px}.card-actions{display:flex;gap:5px}.card-actions button,.global-palette-card>button{height:32px;border-radius:5px;padding:0 10px;font-size:8px;font-weight:850;white-space:nowrap}.card-apply{border:0;background:var(--forest);color:white}.card-secondary{border:1px solid #b9c9c1;background:white;color:var(--forest)}.card-delete{border:0;background:#fff0eb;color:#98472e}.create-global-palette{width:100%;height:42px;margin-top:10px;border:1px dashed #aeb3ae;border-radius:7px;background:transparent;color:#48524c;font-size:9px;font-weight:850}.palette-draft-form{margin-top:18px}.draft-name{display:block;margin-bottom:12px}.draft-name span{display:block;margin-bottom:6px;font-size:8px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:#626a65}.draft-name input{width:100%;height:41px;border:1px solid #d0cec7;border-radius:6px;background:white;padding:0 10px;font-size:11px;font-weight:700}.draft-colors{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-height:330px;overflow:auto}.draft-color-row{display:grid;grid-template-columns:32px 1fr 29px;align-items:center;border:1px solid #d5d2cb;border-radius:6px;background:white;padding:4px}.draft-color-row input[type=color]{width:28px;height:28px;border:0;padding:0;background:transparent}.draft-color-row input:not([type=color]){min-width:0;height:29px;border:0;padding:0 7px;font:700 9px ui-monospace}.draft-color-row button{height:28px;border:0;background:transparent;color:#9b4e3a;font-size:16px}.draft-color-row button:disabled{opacity:.25}.add-draft-color{width:100%;height:36px;margin-top:8px;border:1px dashed #b9b7b0;border-radius:6px;background:transparent;font-size:8px;font-weight:850}.draft-error{font-size:8px;color:#9b472d}.palette-library-dialog .dialog-actions{margin-bottom:0}
 	.project-metrics{border:0;background:transparent;padding:7px 9px;border-radius:6px;cursor:pointer}.project-metrics:hover,.project-metrics:focus-visible{background:#eeece6;outline:none}.project-metrics b{font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-left:3px}.canvas-settings-layer{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:18px}.canvas-settings-backdrop{position:absolute;inset:0;width:100%;height:100%;border:0;background:rgba(24,29,26,.48);backdrop-filter:blur(3px)}.canvas-settings-dialog{position:relative;width:min(440px,100%);border:1px solid #c7c4bc;border-radius:10px;background:#fbfaf7;padding:24px;box-shadow:0 24px 70px rgba(23,28,25,.28)}.dialog-heading{display:flex;align-items:flex-start;justify-content:space-between}.dialog-heading h2{font-size:25px;letter-spacing:-.05em;margin:5px 0 0}.dialog-heading>button{width:32px;height:32px;border:1px solid #d1cec6;border-radius:6px;background:white;color:#5f6661;font-size:19px}.dialog-helper{font-size:10px;line-height:1.55;color:#727973;margin:12px 0 18px}.size-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.size-field-grid label,.size-field{display:block;margin-bottom:12px}.size-field-grid label>span,.size-field>span{display:block;margin-bottom:6px;font-size:8px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:#626a65}.size-field-grid label>div,.size-field>div{position:relative}.size-field-grid input,.size-field input{width:100%;height:41px;border:1px solid #d0cec7;border-radius:6px;background:white;padding:0 42px 0 10px;font-size:11px;font-weight:700}.size-field-grid b,.size-field b{position:absolute;right:11px;top:14px;font-size:8px;color:#858b86}.size-result{display:grid;grid-template-columns:1fr 1fr;border:1px solid #c5d5cd;border-radius:7px;background:#edf3f0;margin-top:3px}.size-result>span{display:flex;flex-direction:column;gap:4px;padding:12px}.size-result>span+span{border-left:1px solid #c5d5cd}.size-result small{font-size:7px;letter-spacing:.13em;font-weight:850;color:#718078}.size-result strong{font:700 19px Georgia;color:var(--forest)}.size-result.invalid{border-color:#e8bba8;background:#fff3ed}.size-error,.size-note{font-size:9px;line-height:1.5}.size-error{color:#9b472d}.size-note{padding:9px;border-radius:6px;background:#fff6e6;color:#765c30}.dialog-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:18px}.dialog-actions button{height:41px;border-radius:6px;font-size:9px;font-weight:850}.dialog-actions .cancel{border:1px solid #cbc9c2;background:white;color:#5e6560}.dialog-actions .apply{border:0;background:var(--forest);color:white}.dialog-actions .apply:disabled{opacity:.42}
-	@media(max-width:760px){.project-metrics{display:flex;width:38px;height:36px;flex:0 0 auto;margin-right:0;padding:0;justify-content:center;border:1px solid #d0cec7;background:white}.project-metrics span,.project-metrics i{display:none}.project-metrics b{font-size:0;margin:0}.project-metrics b:before{content:"▦";font-size:16px}.canvas-settings-dialog{padding:20px}.size-field-grid{grid-template-columns:1fr}}
+	@media(max-width:760px){.project-metrics{display:flex;width:38px;height:36px;flex:0 0 auto;margin-right:0;padding:0;justify-content:center;border:1px solid #d0cec7;background:white}.project-metrics span,.project-metrics i{display:none}.project-metrics b{font-size:0;margin:0}.project-metrics b:before{content:"▦";font-size:16px}.canvas-settings-dialog,.palette-library-dialog{padding:20px}.size-field-grid,.draft-colors{grid-template-columns:1fr}.global-palette-card{grid-template-columns:1fr}.global-palette-copy>span{align-items:flex-start;flex-direction:column;gap:3px}.card-actions{justify-content:flex-end}}
 </style>

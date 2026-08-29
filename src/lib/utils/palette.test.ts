@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_CELL } from '$lib/types';
-import { removePaletteSlot } from './palette';
+import { applyPaletteHexes, removePaletteSlot } from './palette';
 
 describe('local palette structure', () => {
 	it('removes a color and maps its cells to the nearest remaining color', () => {
@@ -14,5 +14,12 @@ describe('local palette structure', () => {
 		const result = removePaletteSlot([{ id: 'black', slot: 0, hex: '#000000' }], Uint16Array.from([0, EMPTY_CELL]), 0);
 		expect(result.palette).toEqual([]);
 		expect([...result.cells]).toEqual([EMPTY_CELL, EMPTY_CELL]);
+	});
+
+	it('applies a new palette immediately by mapping every used slot to its nearest color', () => {
+		const palette = [{ id: 'black', slot: 0, hex: '#101010' }, { id: 'white', slot: 1, hex: '#F0F0F0' }];
+		const result = applyPaletteHexes(palette, Uint16Array.from([0, 1, EMPTY_CELL]), ['#000000', '#FFFFFF', '#FF0000']);
+		expect(result.palette.map((entry) => entry.hex)).toEqual(['#000000', '#FFFFFF', '#FF0000']);
+		expect([...result.cells]).toEqual([0, 1, EMPTY_CELL]);
 	});
 });

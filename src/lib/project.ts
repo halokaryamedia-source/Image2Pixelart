@@ -132,6 +132,7 @@ function projectFromRecord(parsed: Record<string, unknown>, cells: Uint16Array, 
 		name: requiredString(parsed.name, 'Nama proyek').slice(0, 200),
 		...dimensions,
 		palette,
+		suggestedPalette: parsed.schemaVersion === 2 && parsed.suggestedPalette !== undefined ? parsePaletteV2(parsed.suggestedPalette) : undefined,
 		cells: cells.slice(),
 		importSettings: parsed.schemaVersion === 2 ? parseImportSettingsV2(parsed.importSettings) : migrateImportSettingsV1(parsed.importSettings),
 		sourceImage: sourceOverride ?? parseSourceImage(parsed.sourceImage),
@@ -195,6 +196,7 @@ export function cloneProject(project: ProjectV2): ProjectV2 {
 	return {
 		...project,
 		palette: project.palette.map((entry) => ({ ...entry })),
+		suggestedPalette: project.suggestedPalette?.map((entry) => ({ ...entry })),
 		cells: project.cells.slice(),
 		importSettings: {
 			...project.importSettings,

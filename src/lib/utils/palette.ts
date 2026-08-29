@@ -20,3 +20,19 @@ export function removePaletteSlot(
 	}
 	return { palette: nextPalette, cells: nextCells };
 }
+
+export function applyPaletteHexes(
+	palette: ProjectPaletteEntry[],
+	cells: Uint16Array,
+	hexes: string[]
+): { palette: ProjectPaletteEntry[]; cells: Uint16Array } {
+	if (hexes.length < 1 || hexes.length > 32) throw new Error('Palet tujuan harus memiliki 1–32 warna.');
+	const nextPalette = hexes.map((hex, slot) => ({ id: crypto.randomUUID(), slot, hex }));
+	const slotMap = palette.map((entry) => nearestPaletteIndex(hexToOklab(entry.hex), nextPalette));
+	const nextCells = new Uint16Array(cells.length);
+	for (let index = 0; index < cells.length; index += 1) {
+		const slot = cells[index];
+		nextCells[index] = slot === EMPTY_CELL ? EMPTY_CELL : (slotMap[slot] ?? EMPTY_CELL);
+	}
+	return { palette: nextPalette, cells: nextCells };
+}

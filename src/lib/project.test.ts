@@ -9,6 +9,7 @@ describe('project schema v2', () => {
 		expect(project.palette).toEqual([]);
 		expect([...project.cells].every((slot) => slot === EMPTY_CELL)).toBe(true);
 		project.palette = [{ id: 'blue', slot: 0, hex: '#00AACC' }];
+		project.suggestedPalette = [{ id: 'suggested-blue', slot: 0, hex: '#00BBCC' }];
 		project.cells[25] = 0;
 		project.importSettings = { placement: 'crop', crop: { x: 0.1, y: 0.2, width: 0.5, height: 0.25 }, renderMode: 'photo', suggestionCount: 12 };
 		project.sourceImage = { name: 'source.png', type: 'image/png', dataUrl: 'data:image/png;base64,AAAA', width: 100, height: 200 };
@@ -16,6 +17,7 @@ describe('project schema v2', () => {
 		expect(restored.schemaVersion).toBe(2);
 		expect(restored.cells[25]).toBe(0);
 		expect(restored.cells[0]).toBe(EMPTY_CELL);
+		expect(restored.suggestedPalette).toEqual(project.suggestedPalette);
 		expect(restored.importSettings.renderMode).toBe('photo');
 		expect(restored.sourceImage?.name).toBe('source.png');
 	});
