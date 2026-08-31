@@ -23,6 +23,9 @@ frontend-reference-inventory.md
 original-ui-baseline.md
 → factual map of the original upstream UI at commit 7904ba38; stable UI IDs for future owner handoff
 
+ui-preservation-contract.md
+→ mandatory visual-preservation rules for icons, assets, fonts, colors, component styling, states, spacing character, and accessibility during UI planning/regeneration
+
 ui-audit.md
 → current Home/Editor UI audit and prioritized alignment gaps
 
@@ -36,5 +39,7 @@ decisions/
 Current source outranks stale continuity. Git history owns ordinary historical detail.
 
 `original-ui-baseline.md` is a special historical baseline: it intentionally describes the original upstream interface rather than claiming to describe the current fork. Future UI proposals should reference its stable UI IDs and remain separate from the factual baseline.
+
+`ui-preservation-contract.md` is mandatory for future UI proposals and regeneration. Simplification, movement, grouping, hiding, or copy changes do not authorize visual substitution. Unaffected icons, assets, fonts, colors, component treatment, interaction states, and accessibility behavior must remain the same as the original source unless a visual change is explicitly approved.
 
 Do not create parallel roadmaps, review archives, status systems, duplicate owner maps, or separate UI-reference catalogs unless a distinct current responsibility is proven.
