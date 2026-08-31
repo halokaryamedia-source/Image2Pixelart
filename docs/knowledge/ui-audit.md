@@ -18,19 +18,22 @@ This audit is based on:
 
 It is **not** a live-browser acceptance pass. Layout feel, clipping, actual viewport behavior, focus appearance, pointer-to-cell fidelity, and motion still require browser evidence when implementation work begins.
 
+The Home Slice 1 source change has been inspected statically. `npm run check` remains local proof required because the current execution environment could not create a local checkout, and automatic CI is intentionally deferred.
+
 # Executive result
 
 The current UI is not an old pre-redesign baseline anymore. It already implements much of the intended redesign family.
 
 ```text
 Home
-→ already strongly aligned with Reference 01 — Quick Start Split
+→ strongly aligned with Reference 01 — Quick Start Split
+→ Slice 1 language/hierarchy cleanup applied
 
 Editor
 → already strongly aligned with Reference 03 — Focused Workbench v2
 ```
 
-Therefore the next UI phase should be **ALIGN + polish**, not a full rewrite.
+Therefore the UI phase remains **ALIGN + polish**, not a full rewrite.
 
 Reference 02 and Reference 04 remain useful, but only as partial supporting influences.
 
@@ -38,7 +41,7 @@ Reference 02 and Reference 04 remain useful, but only as partial supporting infl
 
 ## Current strengths
 
-Current Home already contains the major Reference 01 structure:
+Current Home contains the major Reference 01 structure:
 
 - compact sticky application header;
 - clear separation between `Buka file proyek` and source-image upload;
@@ -53,46 +56,57 @@ Current Home already contains the major Reference 01 structure:
 
 The current setup/preview split is therefore a valid working direction rather than something that needs to be replaced by a new concept.
 
-## Home gaps
+## Home cleanup applied
 
-### P0 — infrastructure terminology leaks into product UI
+### Resolved — infrastructure terminology in ordinary project UI
 
-Current copy includes implementation-facing phrases such as `PROYEK CLOUD`, `proyek terhubung ke perangkat ini`, and explicit Neon wording in empty-state copy.
+Slice 1 removes implementation-facing wording such as `PROYEK CLOUD`, `proyek terhubung ke perangkat ini`, explicit Neon wording, and cloud-specific loading/empty-state language from the ordinary Home hierarchy.
 
-Why this matters:
+Current direction now uses product language such as:
 
-- users are trying to create/resume a mosaic, not operate cloud infrastructure;
-- backend implementation may change while product meaning remains stable;
-- infrastructure language competes with simple project language.
+```text
+PROYEK
+proyek tersedia
+Memuat proyek…
+Belum ada proyek
+Lanjutkan editor
+```
 
-Direction:
+This keeps backend implementation subordinate to the user's mosaic task.
 
-- ordinary UI should prefer `Proyek`, `Tersimpan`, `Lanjutkan`, `Buka file proyek`, and only distinguish local/online storage when the user actually needs that distinction.
+### Resolved — role terminology in project cards
 
-### P1 — header utility competition
+Raw `owner / editor / viewer` values are no longer exposed directly in project-card metadata.
 
-The device/cloud control is a persistent header action beside navigation and file-open actions.
+Current presentation maps them to concise user-facing terms:
 
-Direction:
+```text
+owner  → Pemilik
+editor → Editor
+viewer → Hanya lihat
+```
 
-- keep device identity available when required for collaboration/device recovery;
-- visually subordinate it to project-start/open tasks;
-- do not let device identity look like a primary navigation destination.
+Authorization behavior itself remains unchanged.
 
-### P1 — project continuation hierarchy is functional but flat
+### Improved — device utility hierarchy
 
-Current project cards expose useful metadata and continue actions, but all projects have similar hierarchy.
+The device control remains available because it has a real collaboration/device-identity responsibility, but it no longer uses a cloud badge/primary-tinted treatment.
 
-Reference 02 provides a useful principle: returning-user continuation should be exceptionally easy to scan.
+It is now visually quieter than project navigation and `Buka file proyek`.
 
-Direction:
+Further device-management restructuring is not required unless rendered evidence proves the header remains too competitive.
 
-- improve project-card readability/action hierarchy where useful;
-- do not create a featured-project hero unless recency/usage evidence justifies it.
+### Improved — continuation action clarity
+
+Project cards now use a clearer continuation CTA (`Lanjutkan editor`) and a subtle card hover treatment while preserving the existing project-card structure.
+
+Reference 02 remains supporting evidence for future continuation hierarchy, not authority for a Dashboard-First replacement.
+
+## Remaining Home gaps
 
 ### P1 — mixed icon language
 
-Current Home uses logo imagery, inline SVG, and several text/unicode symbols.
+Current Home still uses logo imagery, inline SVG, and several text/unicode symbols.
 
 Direction:
 
@@ -101,12 +115,13 @@ Direction:
 
 ### P2 — visual token drift
 
-Global tokens use the actual MIVUBI brand palette, while redesign prompts contain approximate alternate greens/ivories.
+Global tokens use the actual MIVUBI brand palette, while redesign prompts contain approximate alternate greens/ivories and component CSS still contains several repeated raw values.
 
 Direction:
 
 - keep current MIVUBI brand palette as authority;
-- use references for roles/hierarchy, not as a source of replacement brand HEX values.
+- use references for roles/hierarchy, not as a source of replacement brand HEX values;
+- centralize only semantic roles that are genuinely repeated.
 
 ## Home reference decision
 
@@ -267,8 +282,6 @@ Direction:
 
 Resolved by `docs/foundation/05-ui-design-system.md`.
 
-Before this, references, global CSS, and current component decisions could all appear authoritative in different ways.
-
 ## P1 — semantic token cleanup
 
 Current global tokens provide a good brand baseline:
@@ -317,10 +330,9 @@ Those become required browser checks only when the corresponding implementation 
 
 # Recommended implementation order
 
-Do not redesign everything at once.
+Slice 1 is complete at source/static level. Continue one bounded slice at a time:
 
 ```text
-1. Home terminology + hierarchy polish
 2. shared semantic visual-token cleanup where repeated drift is proven
 3. Editor header hierarchy/density
 4. Editor typography/control-density cleanup
