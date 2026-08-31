@@ -36,6 +36,7 @@ export const GET: RequestHandler = async ({ request }) => {
 			return {
 				id: row.id, name: document.name, widthMm: document.widthMm, heightMm: document.heightMm, cellMm: document.cellMm,
 				columns: document.columns, rows: document.rows, palette: document.palette, createdAt: document.createdAt, updatedAt: document.updatedAt,
+				hasSourceImage: Boolean(row.source_file_name),
 				...sampled, revision: Number(row.revision), ownerDeviceId: row.owner_device_id,
 				activeEditorDeviceId: row.active_editor_device_id, editorEpoch: Number(row.editor_epoch), deletedAt: row.deleted_at, purgeAfter: row.purge_after,
 				role: row.owner_device_id === device.id ? 'owner' : row.active_editor_device_id === device.id ? 'editor' : 'viewer'
