@@ -2,24 +2,27 @@
 
 ## Current Status
 
-The UI direction has been revised to a **Player-first experience with the current MIVUBI visual style preserved**. Automatic CI, branch lifecycle, and GitHub rulesets remain intentionally deferred.
+Player-first UI simplification is implemented at source/static level while preserving the existing MIVUBI visual language.
 
-Safe source-level simplifications already applied:
+Completed:
 
-- Home infrastructure wording cleanup;
-- Editor opens canvas-first with side panels closed and quick palette visible;
-- collaboration UI is contextual and no longer exposes revision/device-ID details to ordinary users.
+- project owner is the project Admin structural authority;
+- non-owner editors cannot change canvas width/height/tile/grid through the save API;
+- Home is a project launcher with Admin configuration secondary;
+- Player upload → position/crop → generated result flow exists;
+- Player Editor defaults to basic tools + quick palette + canvas-first workspace;
+- collaboration and save presentation are simplified;
+- Player Finish/Export is task-first;
+- Admin retains the full workbench.
+
+Automatic CI, branch architecture, and GitHub rulesets remain intentionally deferred.
 
 ## Active Boundary
 
-Player must not choose canvas width, height, tile size, or resulting grid. Those are Admin configuration responsibilities.
+Do not change the MIVUBI visual style. Do not weaken the Admin structural guard. Do not deploy, migrate cloud state, or reactivate CI as part of UI validation.
 
-The repository currently has `owner / editor / viewer` collaboration roles but no explicit `admin` role. Do **not** infer `owner === admin` without explicit product authorization.
-
-Keep the current MIVUBI visual language. Future work changes hierarchy, placement, wording, default state, and progressive disclosure—not the product aesthetic.
-
-Do not deploy, migrate cloud state, activate CI, or invent branch/ruleset work as part of this UI effort.
+Current proof level is **SOURCE/STATIC ONLY** because the available runtime cannot resolve GitHub for a local checkout and has no Svelte compiler installed.
 
 ## Next Step
 
-Define the real **Admin capability boundary** that will own canvas width/height/tile/grid configuration. Once that authority exists, remove those editable controls from the Player path and convert Player Home into a project launcher with read-only project dimensions plus `Upload image / Continue` actions.
+When LOCAL_CODE / LIVE_BROWSER capability is available, validate the implemented Player-first flow with `npm run check`, targeted tests, and real browser inspection. Fix only concrete failures found by that proof; do not restart a visual redesign.
