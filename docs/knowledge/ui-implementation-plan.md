@@ -1,130 +1,196 @@
 # UI Implementation Plan
 
-Status: current bounded sequence
+Status: current player-first sequence
 
-This plan translates the current UI audit and UI Foundation into a safe implementation order. It is not a promise to execute every item automatically.
+This plan preserves the current MIVUBI visual style and changes only role separation, information hierarchy, default state, wording, placement, and progressive disclosure.
 
-Durable direction is owned by `docs/foundation/05-ui-design-system.md`. Current evidence is owned by `docs/knowledge/ui-audit.md`.
+Durable direction: `docs/foundation/05-ui-design-system.md`.
+Current evidence: `docs/knowledge/ui-audit.md`.
 
 ## Current progress
 
-```text
-Slice 1 — Home language and hierarchy
-→ SOURCE/STATIC COMPLETE
-→ local `npm run check` still required when a LOCAL_CODE environment is available
+Completed at source/static level:
 
-Next candidate
-→ Slice 2 — shared UI role cleanup
+- Home infrastructure wording cleanup;
+- Editor default workspace changed to canvas-first (`left=false`, `right=false`, `quick=true`);
+- collaboration UI hidden during normal solo editable work and stripped of revision/device-ID presentation.
+
+Automatic CI remains deferred. Local Svelte/browser proof remains required when available before claiming rendered completion.
+
+# New sequence
+
+## Phase 0 — define real Admin capability boundary
+
+Goal:
+
+- establish how the application knows a user is Admin;
+- do not infer `owner === admin` without explicit approval;
+- provide the correct owner for canvas width/height/tile configuration.
+
+This is required before removing configuration capability from Player UI.
+
+Affected areas may include project permission/data/API routing in addition to UI. Treat it as architecture, not CSS hiding.
+
+## Phase 1 — Player Home becomes project launcher
+
+Goal:
+
+```text
+project card
+→ read-only physical summary
+→ Upload image / Continue
 ```
 
-Automatic CI remains deferred.
+Remove width/height/tile editing from the Player path once Admin configuration exists.
 
-## Sequence
+Preserve the same Home card/button/input visual language.
 
-### Slice 1 — Home language and hierarchy — COMPLETE AT SOURCE/STATIC LEVEL
+Admin configuration moves to the explicit Admin surface rather than being deleted.
 
-Applied outcome:
-
-- removed infrastructure-facing terminology from ordinary project UI;
-- visually subordinated device identity utility;
-- translated project access roles into user-facing labels;
-- clarified project continuation CTA;
-- preserved the existing Quick Start Split structure and project/cloud behavior.
-
-Owner changed:
-
-- `src/lib/components/HomeView.svelte`.
-
-Remaining proof:
-
-- local `npm run check` when a local checkout is available;
-- rendered browser review only if visual acceptance is being claimed beyond source/static review.
-
-### Slice 2 — shared UI role cleanup
+## Phase 2 — image setup flow
 
 Goal:
-
-- reduce repeated raw visual values only where a durable semantic role is proven;
-- preserve MIVUBI brand palette;
-- clarify typography/control-size roles.
-
-Likely owners:
-
-- `src/lib/styles/global.css`;
-- affected component-local styles.
-
-Do not create a large token framework or theme registry.
-
-### Slice 3 — Editor header hierarchy
-
-Goal:
-
-- preserve all existing header capability;
-- reduce competition among project context, collaboration, panel/help utilities, format selection, and Export;
-- keep Export as the strongest header action.
-
-Likely owner:
-
-- `src/lib/components/EditorView.svelte`.
-
-### Slice 4 — Editor density and terminology
-
-Goal:
-
-- improve critical type/control readability;
-- reserve tiny text for non-critical metadata;
-- normalize Indonesian user-facing tool terminology;
-- reduce redundant panel naming.
-
-Likely owner:
-
-- `src/lib/components/EditorView.svelte`.
-
-### Slice 5 — Editor panel/context consistency
-
-Goal:
-
-- strengthen active/selected/disabled/locked states;
-- keep quick palette as fast switching only;
-- keep right panel as management/detail;
-- keep context bar state-driven.
-
-Likely owners:
-
-- `EditorView.svelte`;
-- `CollaborationBar.svelte` only if collaboration presentation is affected.
-
-### Slice 6 — adaptive Editor layout
-
-Goal:
-
-- preserve canvas usability on constrained laptop/tablet-like widths;
-- prefer panel collapse/one-panel-at-a-time/overlay behavior before squeezing the canvas below useful size.
-
-This slice requires real browser viewport validation.
-
-### Slice 7 — viewer/collaboration visual states
-
-Goal:
-
-- make editable/viewer/requesting-edit/disconnected/saving/error state visibly distinct and understandable;
-- preserve actual authorization behavior as server/source authority.
-
-This slice requires browser proof and may require cloud/realtime proof only if behavior, not presentation, changes.
-
-## Execution rule
-
-Implement one bounded slice at a time.
 
 ```text
-explicit user approval / requested slice
+Upload image
+→ position/crop
+→ continue
+```
+
+Default Player controls:
+
+- image preview;
+- drag/reposition;
+- `Isi canvas` / `Tampilkan semua`;
+- Reset;
+- clear continue/apply action.
+
+Detailed zoom/crop controls become secondary when not needed.
+
+## Phase 3 — pixel result / reconstruction simplification
+
+Goal:
+
+```text
+Hasil pixel
+→ Gunakan hasil
+→ Perbaiki hasil
+```
+
+Primary Player wording avoids implementation jargon.
+
+Advanced reconstruction remains behind `Perbaiki hasil` / `Pengaturan lainnya`.
+
+Suggested terminology:
+
+```text
+Contour → Bentuk tegas
+Photo → Detail halus
+Suggestion → Saran warna
+Raster ulang → Buat ulang hasil
+```
+
+Do not change image-processing behavior unless a separate functional requirement exists.
+
+## Phase 4 — basic Editor tools
+
+Goal:
+
+Primary visible tools:
+
+```text
+Pensil
+Hapus
+Geser
+```
+
+Secondary `Alat lainnya`:
+
+```text
+Isi
+Pilih
+Pipet
+```
+
+Keep all current tool behavior and shortcuts.
+
+## Phase 5 — Player color workflow
+
+Goal:
+
+```text
+quick palette
+→ choose active color
+
+Kelola warna
+→ detailed palette panel/library
+```
+
+Right panel stays contextual/closed by default.
+
+Do not remove HEX/name/lock/delete/global-library capability.
+
+## Phase 6 — Header + save + collaboration simplification
+
+Already started through contextual collaboration presentation.
+
+Remaining goal:
+
+- project identity + read-only dimensions remain easy to scan;
+- save state uses simple Player language;
+- low-frequency panel/help controls are visually quieter;
+- collaboration appears only when relevant;
+- no revision/device UUID/provider terminology in normal Player UI.
+
+## Phase 7 — Finish / Export
+
+Goal:
+
+Primary task-oriented action:
+
+```text
+Selesai / Ekspor
+```
+
+Then:
+
+```text
+Panduan build
+Gambar pixel
+Export lainnya
+```
+
+Keep CSV/raw project formats under advanced export rather than deleting them.
+
+## Phase 8 — Admin configuration UI
+
+Goal:
+
+Admin-only project configuration with the same MIVUBI visual language:
+
+- width;
+- height;
+- tile size;
+- resulting grid;
+- other approved project-level settings.
+
+Player sees these values read-only.
+
+The authorization boundary must be real, not presentation-only.
+
+# Execution rule
+
+Implement one bounded phase/slice at a time.
+
+```text
+explicit user direction
 → development-brief
 → UI Foundation
-→ current owner
-→ smallest complete source change
-→ Svelte validation
-→ accessibility/browser proof when the changed claim requires it
+→ correct product/permission owner
+→ smallest complete change
+→ Svelte/static proof
+→ browser/accessibility proof when claimed
 → STOP
 ```
 
-Do not start the next slice automatically after completing one.
+Do not visually restyle the product while simplifying it.
