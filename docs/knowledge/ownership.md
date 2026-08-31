@@ -14,10 +14,13 @@ Status: current canonical responsibility map
 | Image/grid/project/export invariants | `docs/foundation/02-image-grid-contract.md` |
 | Collaboration/realtime/cloud contract | `docs/foundation/03-cloud-collaboration-contract.md` |
 | Deployment/operations | `docs/foundation/04-deployment-operations.md` |
+| Durable UI design system / Home + Editor visual direction | `docs/foundation/05-ui-design-system.md` |
 | Active continuation | `docs/knowledge/next-action.md` |
 | Code hot-path routing | `docs/knowledge/implementation-map.md` |
 | Proof interpretation | `docs/knowledge/current-validation.md` |
 | Frontend reference classification/routing | `docs/knowledge/frontend-reference-inventory.md` |
+| Current UI alignment audit | `docs/knowledge/ui-audit.md` |
+| Current bounded UI implementation sequence | `docs/knowledge/ui-implementation-plan.md` |
 | Material decisions | `docs/knowledge/decisions/` |
 | Home/dashboard orchestration | `src/routes/+page.svelte` + `src/lib/components/HomeView.svelte` |
 | Project editor orchestration | `src/routes/project/[id]/+page.svelte` + `src/lib/components/EditorView.svelte` |
