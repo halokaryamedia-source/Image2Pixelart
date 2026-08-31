@@ -14,7 +14,7 @@ Status: current canonical responsibility map
 | Image/grid/project/export invariants | `docs/foundation/02-image-grid-contract.md` |
 | Collaboration/realtime/cloud contract | `docs/foundation/03-cloud-collaboration-contract.md` |
 | Deployment/operations | `docs/foundation/04-deployment-operations.md` |
-| Durable UI / familiar MIVUBI visual + Player/Admin direction | `docs/foundation/05-ui-design-system.md` |
+| Durable UI direction | `docs/foundation/05-ui-design-system.md` |
 | Active continuation | `docs/knowledge/next-action.md` |
 | Code hot-path routing | `docs/knowledge/implementation-map.md` |
 | Proof interpretation | `docs/knowledge/current-validation.md` |
@@ -22,13 +22,14 @@ Status: current canonical responsibility map
 | Original upstream UI baseline + stable UI IDs | `docs/knowledge/original-ui-baseline.md` |
 | Current UI audit | `docs/knowledge/ui-audit.md` |
 | Current UI implementation sequence | `docs/knowledge/ui-implementation-plan.md` |
-| Player Home / project launcher | `src/routes/+page.svelte` + `src/lib/components/ProjectHomeView.svelte` |
-| Admin project creation surface | `src/routes/admin/+page.svelte` + `src/lib/components/AdminProjectView.svelte` |
-| Admin project editor | `src/routes/project/[id]/+page.svelte` + `src/lib/components/EditorView.svelte` |
-| Player project start/editor shell | `src/routes/project/[id]/+page.svelte` + `src/lib/components/PlayerEditorView.svelte` |
-| Project Admin structural authorization | `src/routes/api/projects/[id]/+server.ts` (`owner_device_id`) |
+| Current Home / project dashboard | `src/routes/+page.svelte` + `src/lib/components/HomeView.svelte` |
+| Current project editor surface | `src/routes/project/[id]/+page.svelte` + `src/lib/components/EditorView.svelte` |
+| Collaboration UI | `src/lib/components/CollaborationBar.svelte` |
+| Cloud project thumbnail | `src/lib/components/CloudProjectThumbnail.svelte` |
 | Canvas rendering/input | `src/lib/components/MosaicCanvas.svelte` |
 | Crop UI | `src/lib/components/VisualCropper.svelte` |
+| Panel default visibility | `src/lib/panel-preferences.ts` |
+| Editor shortcut mapping | `src/lib/editor-shortcuts.ts` |
 | Project model/serialization | `src/lib/project.ts`, `src/lib/types.ts` |
 | Image conversion/analysis | `src/lib/image-converter.ts`, `src/lib/image-analysis.ts`, worker |
 | Grid/color/palette/RLE utilities | `src/lib/utils/` |
@@ -49,4 +50,4 @@ When a claim has an owner above, update that owner rather than introducing a com
 
 `docs/knowledge/original-ui-baseline.md` is intentionally a historical factual baseline for the upstream interface at commit `7904ba38d9ea38eec308c04805041ccd75bd6914`; it does not claim to describe the current fork implementation.
 
-Project `owner` is the current **Admin authority for that project**. `editor/viewer` remain collaboration roles, not Admin roles. Admin project creation is a separate authoring surface and must not be mixed into ordinary Player Home.
+Future Player/Admin separation or UI simplification decisions must be recorded as proposals/decisions separately. They are not current source ownership until implemented and verified.
