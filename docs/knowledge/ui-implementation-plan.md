@@ -6,22 +6,39 @@ This plan translates the current UI audit and UI Foundation into a safe implemen
 
 Durable direction is owned by `docs/foundation/05-ui-design-system.md`. Current evidence is owned by `docs/knowledge/ui-audit.md`.
 
+## Current progress
+
+```text
+Slice 1 — Home language and hierarchy
+→ SOURCE/STATIC COMPLETE
+→ local `npm run check` still required when a LOCAL_CODE environment is available
+
+Next candidate
+→ Slice 2 — shared UI role cleanup
+```
+
+Automatic CI remains deferred.
+
 ## Sequence
 
-### Slice 1 — Home language and hierarchy
+### Slice 1 — Home language and hierarchy — COMPLETE AT SOURCE/STATIC LEVEL
 
-Goal:
+Applied outcome:
 
-- remove infrastructure-facing terminology from ordinary project UI;
-- visually subordinate device/cloud utility context;
-- preserve current Quick Start Split structure.
+- removed infrastructure-facing terminology from ordinary project UI;
+- visually subordinated device identity utility;
+- translated project access roles into user-facing labels;
+- clarified project continuation CTA;
+- preserved the existing Quick Start Split structure and project/cloud behavior.
 
-Likely owners:
+Owner changed:
 
-- `src/lib/components/HomeView.svelte`;
-- supporting Home/project-card components only if needed.
+- `src/lib/components/HomeView.svelte`.
 
-Do not change project/cloud behavior.
+Remaining proof:
+
+- local `npm run check` when a local checkout is available;
+- rendered browser review only if visual acceptance is being claimed beyond source/static review.
 
 ### Slice 2 — shared UI role cleanup
 
