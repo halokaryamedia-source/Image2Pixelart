@@ -21,6 +21,7 @@ Status: current canonical responsibility map
 | Frontend reference classification | `docs/knowledge/frontend-reference-inventory.md` |
 | Original upstream UI baseline + stable UI IDs | `docs/knowledge/original-ui-baseline.md` |
 | Original visual preservation contract for UI planning/regeneration | `docs/knowledge/ui-preservation-contract.md` |
+| UI language and terminology contract | `docs/knowledge/ui-language-contract.md` |
 | Current UI audit | `docs/knowledge/ui-audit.md` |
 | Current UI implementation sequence | `docs/knowledge/ui-implementation-plan.md` |
 | Current Home / project dashboard | `src/routes/+page.svelte` + `src/lib/components/HomeView.svelte` |
@@ -52,5 +53,7 @@ When a claim has an owner above, update that owner rather than introducing a com
 `docs/knowledge/original-ui-baseline.md` is intentionally a historical factual baseline for the upstream interface at commit `7904ba38d9ea38eec308c04805041ccd75bd6914`; it does not claim to describe the current fork implementation.
 
 `docs/knowledge/ui-preservation-contract.md` governs visual preservation during future UI planning and regeneration. Unless explicitly approved, existing icon/glyph/SVG/asset identity, logo, fonts, colors, component treatment, interaction states, spacing character, and accessibility behavior must remain unchanged from the original source.
+
+`docs/knowledge/ui-language-contract.md` governs language and terminology cleanup. Use Indonesian where it is natural; retain familiar English software/creative terms when translation would feel forced. Existing visual identity and icons are not affected by terminology changes.
 
 Future Player/Admin separation or UI simplification decisions must be recorded as proposals/decisions separately. They are not current source ownership until implemented and verified.
