@@ -52,6 +52,7 @@ export type CloudProjectResponse = CloudProjectMeta & {
 
 export type CloudProjectSummary = ProjectSummary & CloudProjectMeta & {
 	role: 'owner' | 'editor' | 'viewer';
+	hasSourceImage: boolean;
 	previewColumns: number;
 	previewRows: number;
 };
