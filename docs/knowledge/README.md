@@ -20,6 +20,12 @@ current-validation.md
 frontend-reference-inventory.md
 → current UI/reference catalog + authority classification
 
+ui-audit.md
+→ current Home/Editor UI audit and prioritized alignment gaps
+
+ui-implementation-plan.md
+→ current bounded UI implementation sequence; not automatic execution
+
 decisions/
 → material durable decisions only
 ```
