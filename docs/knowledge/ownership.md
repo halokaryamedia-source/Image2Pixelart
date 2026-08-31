@@ -14,16 +14,17 @@ Status: current canonical responsibility map
 | Image/grid/project/export invariants | `docs/foundation/02-image-grid-contract.md` |
 | Collaboration/realtime/cloud contract | `docs/foundation/03-cloud-collaboration-contract.md` |
 | Deployment/operations | `docs/foundation/04-deployment-operations.md` |
-| Durable UI / Player-first + Admin configuration direction | `docs/foundation/05-ui-design-system.md` |
+| Durable UI / familiar MIVUBI visual + Player/Admin direction | `docs/foundation/05-ui-design-system.md` |
 | Active continuation | `docs/knowledge/next-action.md` |
 | Code hot-path routing | `docs/knowledge/implementation-map.md` |
 | Proof interpretation | `docs/knowledge/current-validation.md` |
 | Frontend reference classification | `docs/knowledge/frontend-reference-inventory.md` |
 | Current UI audit | `docs/knowledge/ui-audit.md` |
 | Current UI implementation sequence | `docs/knowledge/ui-implementation-plan.md` |
-| Home/project launcher orchestration | `src/routes/+page.svelte` + `src/lib/components/ProjectHomeView.svelte` |
+| Player Home / project launcher | `src/routes/+page.svelte` + `src/lib/components/ProjectHomeView.svelte` |
+| Admin project creation surface | `src/routes/admin/+page.svelte` + `src/lib/components/AdminProjectView.svelte` |
 | Admin project editor | `src/routes/project/[id]/+page.svelte` + `src/lib/components/EditorView.svelte` |
-| Player project editor shell | `src/routes/project/[id]/+page.svelte` + `src/lib/components/PlayerEditorView.svelte` |
+| Player project start/editor shell | `src/routes/project/[id]/+page.svelte` + `src/lib/components/PlayerEditorView.svelte` |
 | Project Admin structural authorization | `src/routes/api/projects/[id]/+server.ts` (`owner_device_id`) |
 | Canvas rendering/input | `src/lib/components/MosaicCanvas.svelte` |
 | Crop UI | `src/lib/components/VisualCropper.svelte` |
@@ -43,4 +44,6 @@ Status: current canonical responsibility map
 
 ## Rule
 
-When a claim has an owner above, update that owner rather than introducing a competing source of truth. Project `owner` is the current **Admin authority for that project**; `editor/viewer` remain collaboration roles, not Admin roles.
+When a claim has an owner above, update that owner rather than introducing a competing source of truth.
+
+Project `owner` is the current **Admin authority for that project**. `editor/viewer` remain collaboration roles, not Admin roles. Admin project creation is a separate authoring surface and must not be mixed into ordinary Player Home.

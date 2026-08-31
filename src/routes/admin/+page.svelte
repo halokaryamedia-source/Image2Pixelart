@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import ProjectHomeView from '$lib/components/ProjectHomeView.svelte';
-	import { createCloudProject, deleteCloudProject, listCloudProjects, registerDevice } from '$lib/cloud/api';
+	import AdminProjectView from '$lib/components/AdminProjectView.svelte';
+	import { createCloudProject, registerDevice } from '$lib/cloud/api';
 	import { getDeviceIdentity, updateDeviceDisplayName } from '$lib/cloud/device';
-	import type { CloudProjectSummary, DeviceIdentity } from '$lib/cloud/types';
-	import { deserializeProject } from '$lib/project';
+	import type { DeviceIdentity } from '$lib/cloud/types';
+	import { createProject } from '$lib/project';
 
-	let projects = $state<CloudProjectSummary[]>([]);
 	let device = $state<DeviceIdentity | null>(null);
 	let ready = $state(false);
 	let error = $state<string | null>(null);
@@ -18,35 +17,21 @@
 		try {
 			device = getDeviceIdentity();
 			await registerDevice(device);
-			projects = (await listCloudProjects(device)).projects;
 		} catch (caught) {
-			error = caught instanceof Error ? caught.message : 'Proyek belum dapat dimuat.';
+			error = caught instanceof Error ? caught.message : 'Halaman Admin belum dapat disiapkan.';
 		} finally {
 			ready = true;
 		}
 	}
 
-	async function removeProject(id: string) {
-		if (!device) return;
+	async function createNew(input: { name: string; widthMm: number; heightMm: number; cellMm: number; mode: 'blank' }) {
+		if (!device) throw new Error('Pengguna belum siap.');
 		try {
-			await deleteCloudProject(device, id);
-			projects = (await listCloudProjects(device)).projects;
-		} catch (caught) {
-			error = caught instanceof Error ? caught.message : 'Proyek gagal dihapus.';
-		}
-	}
-
-	async function importProject(file: File) {
-		if (!device) return;
-		try {
-			if (file.size > 50 * 1024 * 1024) throw new Error('File proyek melebihi batas 50 MB.');
-			const imported = deserializeProject(await file.text());
-			const now = new Date().toISOString();
-			const project = { ...imported, id: crypto.randomUUID(), name: `${imported.name} (impor)`, createdAt: now, updatedAt: now };
+			const project = createProject(input);
 			await createCloudProject(device, project);
 			await goto(`/project/${project.id}`);
 		} catch (caught) {
-			error = caught instanceof Error ? caught.message : 'File proyek tidak dapat dibuka.';
+			error = caught instanceof Error ? caught.message : 'Proyek gagal dibuat.';
 		}
 	}
 
@@ -60,17 +45,9 @@
 </script>
 
 {#if device}
-	<ProjectHomeView
-		{projects}
-		{ready}
-		deviceName={device.displayName}
-		onOpen={(project) => goto(`/project/${project.id}`)}
-		onDelete={removeProject}
-		onImport={importProject}
-		onRenameDevice={renameDevice}
-	/>
+	<AdminProjectView deviceName={device.displayName} onCreate={createNew} onRenameDevice={renameDevice} />
 {:else if !ready}
-	<div class="loading">Menyiapkan proyek…</div>
+	<div class="loading">Menyiapkan halaman Admin…</div>
 {/if}
 
 {#if error}<div class="root-error" role="alert"><span>{error}</span><button onclick={() => (error = null)}>×</button></div>{/if}

@@ -2,18 +2,36 @@
 
 Use this as the first routing index for named defects/features.
 
-## Home / project launcher
+## Player Home / project launcher
 
 ```text
 src/routes/+page.svelte
 → device/project loading
-→ create/import/delete orchestration
+→ import/delete orchestration
 
 src/lib/components/ProjectHomeView.svelte
-→ Player-first project launcher
-→ read-only physical project summary
-→ collapsed Admin project-creation configuration
+→ familiar MIVUBI Home header/hero/project cards
+→ Player project launcher
+→ clear read-only Canvas / Grid Canvas / Ukuran 1 Tile facts
+→ Upload gambar / Lanjutkan editor / Lihat status
 ```
+
+Ordinary Player Home must not own project width/height/tile configuration.
+
+## Admin project creation
+
+```text
+src/routes/admin/+page.svelte
+→ Admin device initialization + create-project orchestration
+
+src/lib/components/AdminProjectView.svelte
+→ separate project-creation form
+→ width/height/tile inputs
+→ physical grid preview
+→ same MIVUBI visual language as the original UI
+```
+
+The `/admin` surface is separate from ordinary Player navigation.
 
 ## Project editor routing
 
@@ -28,12 +46,12 @@ src/lib/components/EditorView.svelte
 → reconstruction, palette management, canvas settings, advanced export
 
 src/lib/components/PlayerEditorView.svelte
-→ beginner Player shell around current Editor
-→ upload → position/crop → automatic pixel result
-→ basic tools by default
-→ quick palette
-→ task-first Finish/Export
-→ advanced capability remains progressively available
+→ familiar original-style empty-project start screen
+→ Dari gambar / Build langsung
+→ clear read-only project facts
+→ upload + image positioning
+→ existing Editor with basic tools first
+→ task-first Selesai/Export
 ```
 
 ## Admin structural authorization
@@ -132,9 +150,11 @@ Ordinary Player copy must not expose provider/infrastructure vocabulary such as 
 | Symptom | Start here |
 | --- | --- |
 | Player can change canvas/tile/grid | `src/routes/api/projects/[id]/+server.ts` + project editor routing |
-| Player first screen too crowded | `PlayerEditorView.svelte` + `panel-preferences.ts` |
-| Player asked to configure dimensions | `ProjectHomeView.svelte` |
+| Player Home contains Admin size controls | `ProjectHomeView.svelte` + `/admin` routing |
+| Canvas/grid/tile numbers are ambiguous | `ProjectHomeView.svelte` + `PlayerEditorView.svelte` + `05-ui-design-system.md` |
+| empty Player project does not resemble familiar UI | `PlayerEditorView.svelte` |
 | upload/crop flow confusing | `PlayerEditorView.svelte` + `VisualCropper.svelte` |
+| Admin project creation unavailable | `src/routes/admin/+page.svelte` + `AdminProjectView.svelte` |
 | wrong generated colors | `image-analysis.ts` + `utils/color.ts` |
 | pointer/grid alignment wrong | `MosaicCanvas.svelte` + browser proof |
 | viewer can save | server/project endpoint + realtime authorization |
