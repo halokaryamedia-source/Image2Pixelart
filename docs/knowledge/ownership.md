@@ -14,16 +14,17 @@ Status: current canonical responsibility map
 | Image/grid/project/export invariants | `docs/foundation/02-image-grid-contract.md` |
 | Collaboration/realtime/cloud contract | `docs/foundation/03-cloud-collaboration-contract.md` |
 | Deployment/operations | `docs/foundation/04-deployment-operations.md` |
-| Durable UI design system / Home + Editor visual direction | `docs/foundation/05-ui-design-system.md` |
+| Durable UI / Player-first + Admin configuration direction | `docs/foundation/05-ui-design-system.md` |
 | Active continuation | `docs/knowledge/next-action.md` |
 | Code hot-path routing | `docs/knowledge/implementation-map.md` |
 | Proof interpretation | `docs/knowledge/current-validation.md` |
-| Frontend reference classification/routing | `docs/knowledge/frontend-reference-inventory.md` |
-| Current UI alignment audit | `docs/knowledge/ui-audit.md` |
-| Current bounded UI implementation sequence | `docs/knowledge/ui-implementation-plan.md` |
-| Material decisions | `docs/knowledge/decisions/` |
-| Home/dashboard orchestration | `src/routes/+page.svelte` + `src/lib/components/HomeView.svelte` |
-| Project editor orchestration | `src/routes/project/[id]/+page.svelte` + `src/lib/components/EditorView.svelte` |
+| Frontend reference classification | `docs/knowledge/frontend-reference-inventory.md` |
+| Current UI audit | `docs/knowledge/ui-audit.md` |
+| Current UI implementation sequence | `docs/knowledge/ui-implementation-plan.md` |
+| Home/project launcher orchestration | `src/routes/+page.svelte` + `src/lib/components/ProjectHomeView.svelte` |
+| Admin project editor | `src/routes/project/[id]/+page.svelte` + `src/lib/components/EditorView.svelte` |
+| Player project editor shell | `src/routes/project/[id]/+page.svelte` + `src/lib/components/PlayerEditorView.svelte` |
+| Project Admin structural authorization | `src/routes/api/projects/[id]/+server.ts` (`owner_device_id`) |
 | Canvas rendering/input | `src/lib/components/MosaicCanvas.svelte` |
 | Crop UI | `src/lib/components/VisualCropper.svelte` |
 | Project model/serialization | `src/lib/project.ts`, `src/lib/types.ts` |
@@ -38,10 +39,8 @@ Status: current canonical responsibility map
 | Database schema | `db/migrations/` |
 | Realtime Worker | `realtime/src/index.ts` + `realtime/wrangler.jsonc` |
 | Static repository contract | `scripts/verify-repository.mjs` |
-| Raw reference/design artifacts | existing `docs/MIVUBI-UI-UX-Redesign/`, `docs/building/` |
+| Raw reference/design artifacts | `docs/MIVUBI-UI-UX-Redesign/`, `docs/building/` |
 
 ## Rule
 
-When a claim has an owner above, update that owner instead of introducing a second current source of truth.
-
-Tests prove implementation contracts; they do not become product policy when they conflict with an explicitly changed requirement.
+When a claim has an owner above, update that owner rather than introducing a competing source of truth. Project `owner` is the current **Admin authority for that project**; `editor/viewer` remain collaboration roles, not Admin roles.
