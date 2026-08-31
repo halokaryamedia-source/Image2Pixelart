@@ -19,6 +19,7 @@ Status: current canonical responsibility map
 | Code hot-path routing | `docs/knowledge/implementation-map.md` |
 | Proof interpretation | `docs/knowledge/current-validation.md` |
 | Frontend reference classification | `docs/knowledge/frontend-reference-inventory.md` |
+| Original upstream UI baseline + stable UI IDs | `docs/knowledge/original-ui-baseline.md` |
 | Current UI audit | `docs/knowledge/ui-audit.md` |
 | Current UI implementation sequence | `docs/knowledge/ui-implementation-plan.md` |
 | Player Home / project launcher | `src/routes/+page.svelte` + `src/lib/components/ProjectHomeView.svelte` |
@@ -45,5 +46,7 @@ Status: current canonical responsibility map
 ## Rule
 
 When a claim has an owner above, update that owner rather than introducing a competing source of truth.
+
+`docs/knowledge/original-ui-baseline.md` is intentionally a historical factual baseline for the upstream interface at commit `7904ba38d9ea38eec308c04805041ccd75bd6914`; it does not claim to describe the current fork implementation.
 
 Project `owner` is the current **Admin authority for that project**. `editor/viewer` remain collaboration roles, not Admin roles. Admin project creation is a separate authoring surface and must not be mixed into ordinary Player Home.
