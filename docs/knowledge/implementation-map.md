@@ -1,32 +1,63 @@
 # Implementation Map
 
-Use this as the first routing index for named defects/features. It is not a full source inventory.
+Use this as the first routing index for named defects/features.
 
-## Home / project creation
+## Home / project launcher
 
 ```text
 src/routes/+page.svelte
-→ cloud initialization
-→ create/import/delete project orchestration
+→ device/project loading
+→ create/import/delete orchestration
 
-src/lib/components/HomeView.svelte
-→ dashboard/create-project UI
+src/lib/components/ProjectHomeView.svelte
+→ Player-first project launcher
+→ read-only physical project summary
+→ collapsed Admin project-creation configuration
 ```
 
-## Project editor
+## Project editor routing
 
 ```text
 src/routes/project/[id]/+page.svelte
-→ cloud load/join/realtime/autosave/editor handoff
+→ project load/join/realtime/autosave
+→ project owner → Admin Editor
+→ non-owner participant → Player Editor
 
 src/lib/components/EditorView.svelte
-→ editing tools, palette, reconstruction, canvas settings, export actions
+→ full Admin/power-user workbench
+→ reconstruction, palette management, canvas settings, advanced export
 
+src/lib/components/PlayerEditorView.svelte
+→ beginner Player shell around current Editor
+→ upload → position/crop → automatic pixel result
+→ basic tools by default
+→ quick palette
+→ task-first Finish/Export
+→ advanced capability remains progressively available
+```
+
+## Admin structural authorization
+
+```text
+src/routes/api/projects/[id]/+server.ts
+→ project owner (`owner_device_id`) is project Admin authority
+→ non-owner active editor may edit mosaic/content
+→ non-owner may NOT change widthMm / heightMm / cellMm / columns / rows
+```
+
+Do not rely on CSS hiding to enforce Admin-only canvas configuration.
+
+## Canvas / crop
+
+```text
 src/lib/components/MosaicCanvas.svelte
-→ canvas render/pointer/selection/pan/zoom/grid interaction
+→ canvas render/pointer/selection/pan/zoom/grid
 
 src/lib/components/VisualCropper.svelte
-→ source crop/zoom interaction
+→ source crop/zoom/reposition interaction
+
+src/lib/panel-preferences.ts
+→ canvas-first default panel visibility
 ```
 
 ## Image → grid
@@ -58,13 +89,8 @@ src/lib/utils/grid.ts
 
 ```text
 src/lib/types.ts
-→ project/data types + empty-cell sentinel
-
 src/lib/project.ts
-→ create/serialize/deserialize/migrate/clone
-
-src/lib/utils/rle.ts
-→ cell RLE
+→ project/data model + serialization/migration
 
 src/lib/utils/palette.ts
 → palette remapping/removal/application
@@ -79,95 +105,38 @@ src/lib/history.ts
 src/lib/export/pdf.ts
 src/lib/export/pdf-client.ts
 src/lib/workers/pdf-export.worker.ts
-→ PDF
+→ PDF / Player Panduan Build
 
 src/lib/export/png.ts
 → PNG / grid PNG
 
 src/lib/utils/csv.ts
-→ material + matrix CSV
-
-src/lib/utils/download.ts
-→ browser download helpers
+→ advanced material + matrix CSV
 ```
 
-## Browser persistence / cloud client
+## Cloud / API / realtime
 
 ```text
-src/lib/storage.ts
-→ IndexedDB project draft/global palettes
-
-src/lib/cloud/device.ts
-→ anonymous device identity
-
 src/lib/cloud/api.ts
-→ browser HTTP client
-
-src/lib/cloud/project-codec.ts
-→ project ⇄ cloud payload
-
 src/lib/cloud/realtime.ts
-→ WebSocket connection/project live transport
-```
-
-## Server / API hot paths
-
-```text
-src/lib/server/auth.ts
-→ device authentication
-
-src/lib/server/db.ts
-→ Neon client
-
-src/lib/server/project-data.ts
-→ project payload persistence/validation
-
-src/lib/server/r2.ts
-→ R2 client/object operations
-
-src/lib/server/realtime.ts
-→ realtime token/internal Worker authorization
-
-src/lib/server/rate-limit.ts
-→ rate limits
-
+src/lib/server/**
 src/routes/api/**
-→ HTTP endpoints
-```
-
-## Cloud storage / realtime / maintenance
-
-```text
-db/migrations/
-→ durable DB shape
-
 realtime/src/index.ts
-→ Durable Object/WebSocket room behavior
-
-realtime/wrangler.jsonc
-→ Worker binding/origin/deployment config
-
-src/routes/api/maintenance/purge/+server.ts
-→ soft-delete purge
-
-scripts/smoke-cloud.mjs
-→ end-to-end cloud integration smoke
+→ persistence, trust, collaboration, realtime transport
 ```
+
+Ordinary Player copy must not expose provider/infrastructure vocabulary such as Neon, R2, raw revision numbers, or device UUIDs.
 
 ## Defect index
 
 | Symptom | Start here |
 | --- | --- |
-| wrong rows/columns/tile compatibility | `src/lib/utils/grid.ts` |
+| Player can change canvas/tile/grid | `src/routes/api/projects/[id]/+server.ts` + project editor routing |
+| Player first screen too crowded | `PlayerEditorView.svelte` + `panel-preferences.ts` |
+| Player asked to configure dimensions | `ProjectHomeView.svelte` |
+| upload/crop flow confusing | `PlayerEditorView.svelte` + `VisualCropper.svelte` |
 | wrong generated colors | `image-analysis.ts` + `utils/color.ts` |
-| crop framing wrong | `VisualCropper.svelte` + `utils/image-crop.ts` + converter |
-| project file fails/migrates wrong | `project.ts` + `cloud/project-codec.ts` |
-| palette removal corrupts canvas | `utils/palette.ts` |
-| undo/redo wrong | `history.ts` |
-| export material count wrong | canonical project/grid + export owner |
-| viewer can save | server auth/project endpoint/permissions |
-| stale overwrite accepted | project save route + revision owner |
-| edit handoff inconsistent | project page + server realtime + Worker |
-| R2 upload/finalize wrong | source API routes + `server/r2.ts` |
-| presence/WebSocket wrong | cloud realtime client + Worker |
-| build succeeds but UI broken | browser proof; do not edit CI first |
+| pointer/grid alignment wrong | `MosaicCanvas.svelte` + browser proof |
+| viewer can save | server/project endpoint + realtime authorization |
+| edit handoff inconsistent | project page + realtime client/Worker |
+| build succeeds but rendered UI is wrong | browser proof; do not edit CI first |
