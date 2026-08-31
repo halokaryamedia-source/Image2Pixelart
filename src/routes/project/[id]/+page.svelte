@@ -2,7 +2,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import FriendlyEditorView from '$lib/components/FriendlyEditorView.svelte';
+	import EditorView from '$lib/components/EditorView.svelte';
 	import { deleteCloudDraft, loadGlobalPalettes, saveCloudDraft, saveGlobalPalette, deleteGlobalPalette } from '$lib/storage';
 	import { createGlobalPalette } from '$lib/global-palettes';
 	import { grantCloudEditor, joinCloudProject, loadCloudProject, registerDevice, restoreCloudProject, saveCloudProject, uploadSourceImage } from '$lib/cloud/api';
@@ -139,7 +139,7 @@
 <svelte:head><meta name="robots" content="noindex,nofollow" /></svelte:head>
 
 {#if project && meta && device}
-	<FriendlyEditorView {project} {saveState} {globalPalettes} {editable} onChange={changeProject} onBack={leave} onSaveNow={flushSave} onCreateGlobalPalette={addGlobalPalette} onDeleteGlobalPalette={removeGlobalPalette} onSourceImageChange={sourceChanged} collaboration={{ participants, deviceId: device.id, ownerDeviceId: meta.ownerDeviceId, activeEditorDeviceId: meta.activeEditorDeviceId, state: realtimeState, requestingEdit, revision: meta.revision, onRequest: () => realtime?.send('request_edit'), onCancelRequest: () => realtime?.send('cancel_edit_request'), onGrant: grantEditor }} />
+	<EditorView {project} {saveState} {globalPalettes} {editable} onChange={changeProject} onBack={leave} onSaveNow={flushSave} onCreateGlobalPalette={addGlobalPalette} onDeleteGlobalPalette={removeGlobalPalette} onSourceImageChange={sourceChanged} collaboration={{ participants, deviceId: device.id, ownerDeviceId: meta.ownerDeviceId, activeEditorDeviceId: meta.activeEditorDeviceId, state: realtimeState, requestingEdit, revision: meta.revision, onRequest: () => realtime?.send('request_edit'), onCancelRequest: () => realtime?.send('cancel_edit_request'), onGrant: grantEditor }} />
 {:else if deleted && device}
 	<main class="status-card"><img src="/mivubi-logo.png" alt="" /><h1>Proyek berada di tempat sampah</h1><p>Data akan dihapus permanen {deleted.purgeAfter ? new Date(deleted.purgeAfter).toLocaleString('id-ID') : 'dalam tujuh hari'}.</p>{#if deleted.ownerDeviceId === device.id}<button onclick={restore}>Pulihkan proyek</button>{/if}<a href="/">Kembali ke dashboard</a></main>
 {:else}
