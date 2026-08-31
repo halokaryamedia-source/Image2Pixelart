@@ -6,7 +6,7 @@ import { createProjectPdfBytes, pdfDetailPanels } from './pdf';
 describe('blueprint PDF', () => {
 	it('paginates a 24 x 48 grid with empty cells safely', async () => {
 		const project = createProject({ name: 'Lobby', widthMm: 1200, heightMm: 2400, cellMm: 50 });
-		project.palette = [{ id: 'black', slot: 0, hex: '#222222' }, { id: 'orange', slot: 1, hex: '#F26A3D' }];
+		project.palette = [{ id: 'black', slot: 0, hex: '#222222', locked: false }, { id: 'orange', slot: 1, hex: '#F26A3D', locked: false }];
 		for (let index = 0; index < project.cells.length; index += 11) project.cells[index] = index % 2;
 		const bytes = await createProjectPdfBytes(project);
 		const document = await PDFDocument.load(bytes);

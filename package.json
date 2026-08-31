@@ -1,5 +1,5 @@
 {
-	"name": "image-to-pixel-art",
+	"name": "mivubi-mosaic-plan",
 	"private": true,
 	"version": "0.0.1",
 	"engines": {
@@ -8,27 +8,41 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build && node scripts/prepare-sites-build.mjs",
+		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync",
+		"db:migrate": "node --env-file=.env.local scripts/migrate-db.mjs",
+		"db:reassign-owner": "node --env-file=.env.local scripts/reassign-project-owner.mjs",
+		"realtime:dev": "wrangler dev --config realtime/wrangler.jsonc",
+		"realtime:deploy": "wrangler deploy --config realtime/wrangler.jsonc",
+		"smoke:cloud": "node --env-file=.env.local scripts/smoke-cloud.mjs",
+		"r2:configure-cors": "node --env-file=.env.local scripts/configure-r2-cors.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},
 	"devDependencies": {
+		"@cloudflare/workers-types": "^5.20260829.1",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
+		"@types/node": "^26.4.0",
 		"fake-indexeddb": "^6.2.5",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
 		"typescript": "^6.0.3",
 		"vite": "^8.0.16",
-		"vitest": "^4.1.11"
+		"vitest": "^4.1.11",
+		"wrangler": "^4.127.1"
 	},
 	"dependencies": {
+		"@aws-sdk/client-s3": "^3.1121.0",
+		"@aws-sdk/s3-request-presigner": "^3.1121.0",
+		"@neondatabase/serverless": "^1.1.0",
+		"@sveltejs/adapter-vercel": "^6.3.4",
 		"idb": "^8.0.3",
+		"jose": "^6.2.10",
 		"pdf-lib": "^1.17.1"
 	}
 }

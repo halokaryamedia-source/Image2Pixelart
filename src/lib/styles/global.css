@@ -1,17 +1,23 @@
 :root {
 	font-family:
-		Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-	color: #1f2522;
-	background: #f2f0ea;
+		Poppins, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	color: #21302f;
+	background: #fefaec;
 	font-synthesis: none;
-	--ink: #1f2522;
-	--muted: #69716b;
-	--line: #d8d6cf;
-	--paper: #fbfaf7;
-	--accent: #eb6a3c;
-	--accent-dark: #c84d24;
-	--forest: #294b3d;
-	--cyan: #45a8b5;
+	--ink: #21302f;
+	--muted: #66746f;
+	--line: #e4d9b6;
+	--paper: #fffef9;
+	--accent: #ebb734;
+	--accent-dark: #e4991c;
+	--forest: #005a2a;
+	--cyan: #f0ce61;
+	--brand-yellow-50: #fefaec;
+	--brand-yellow-100: #faf1cb;
+	--brand-yellow-300: #f0ce61;
+	--brand-yellow-400: #ebb734;
+	--brand-yellow-500: #e4991c;
+	--danger: #9b472d;
 }
 
 * {
@@ -28,8 +34,8 @@ body {
 body {
 	min-height: 100vh;
 	background:
-		radial-gradient(circle at 8% 4%, rgba(69, 168, 181, 0.08), transparent 26rem),
-		#f2f0ea;
+		radial-gradient(circle at 8% 4%, rgba(240, 206, 97, 0.34), transparent 28rem),
+		#fefaec;
 }
 
 button,
@@ -45,7 +51,7 @@ button {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
-	outline: 3px solid rgba(69, 168, 181, 0.32);
+	outline: 3px solid rgba(235, 183, 52, 0.42);
 	outline-offset: 2px;
 }
 

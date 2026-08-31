@@ -1,0 +1,2 @@
+REALTIME_TOKEN_SECRET=must-match-vercel-realtime-token-secret
+REALTIME_INTERNAL_SECRET=must-match-vercel-realtime-internal-secret

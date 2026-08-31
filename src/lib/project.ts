@@ -43,7 +43,24 @@ function parsePaletteV2(value: unknown): ProjectPaletteEntry[] {
 		ids.add(id);
 		const hex = typeof item.hex === 'string' ? normalizeHex(item.hex) : null;
 		if (!hex) throw new Error('HEX palette file proyek tidak valid.');
-		return { id, slot: index, hex };
+		return { id, slot: index, hex, locked: false };
+	});
+}
+
+function parsePaletteV3(value: unknown): ProjectPaletteEntry[] {
+	if (!Array.isArray(value) || value.length > 32) throw new Error('Palette file proyek harus berisi 0–32 warna.');
+	const ids = new Set<string>();
+	return value.map((item, index) => {
+		if (!isRecord(item) || item.slot !== index) throw new Error('Urutan slot palette file proyek tidak valid.');
+		const id = requiredString(item.id, 'ID warna');
+		if (ids.has(id)) throw new Error('Palette file proyek memiliki ID warna duplikat.');
+		ids.add(id);
+		const hex = typeof item.hex === 'string' ? normalizeHex(item.hex) : null;
+		if (!hex) throw new Error('HEX palette file proyek tidak valid.');
+		if (item.name !== undefined && typeof item.name !== 'string') throw new Error('Nama warna file proyek tidak valid.');
+		if (item.locked !== undefined && typeof item.locked !== 'boolean') throw new Error('Status lock warna file proyek tidak valid.');
+		const name = typeof item.name === 'string' ? item.name.trim().slice(0, 80) || undefined : undefined;
+		return { id, slot: index, hex, name, locked: item.locked === true };
 	});
 }
 
@@ -54,7 +71,7 @@ function parsePaletteV1(value: unknown): ProjectPaletteEntry[] {
 		const hex = typeof item.hex === 'string' ? normalizeHex(item.hex) : null;
 		if (!hex) throw new Error('HEX palette proyek lama tidak valid.');
 		const legacyId = typeof item.catalogId === 'string' && item.catalogId.trim() ? item.catalogId.trim() : `${hex.slice(1)}-${index}`;
-		return { id: `legacy-${legacyId}`, slot: index, hex };
+		return { id: `legacy-${legacyId}`, slot: index, hex, locked: false };
 	});
 }
 
@@ -121,20 +138,24 @@ function validateCells(cells: Uint16Array, total: number, paletteLength: number)
 }
 
 function projectFromRecord(parsed: Record<string, unknown>, cells: Uint16Array, sourceOverride?: SourceImage): ProjectV2 {
-	if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) throw new Error('Versi file proyek belum didukung.');
+	if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 3) throw new Error('Versi file proyek belum didukung.');
 	const dimensions = parseCommon(parsed);
-	const palette = parsed.schemaVersion === 2 ? parsePaletteV2(parsed.palette) : parsePaletteV1(parsed.palette);
+	const palette = parsed.schemaVersion === 3 ? parsePaletteV3(parsed.palette) : parsed.schemaVersion === 2 ? parsePaletteV2(parsed.palette) : parsePaletteV1(parsed.palette);
 	validateCells(cells, dimensions.columns * dimensions.rows, palette.length);
 	const now = new Date().toISOString();
 	return {
-		schemaVersion: 2,
+		schemaVersion: 3,
 		id: requiredString(parsed.id, 'ID proyek'),
 		name: requiredString(parsed.name, 'Nama proyek').slice(0, 200),
 		...dimensions,
 		palette,
-		suggestedPalette: parsed.schemaVersion === 2 && parsed.suggestedPalette !== undefined ? parsePaletteV2(parsed.suggestedPalette) : undefined,
+		suggestedPalette: parsed.schemaVersion === 3 && parsed.suggestedPalette !== undefined
+			? parsePaletteV3(parsed.suggestedPalette)
+			: parsed.schemaVersion === 2 && parsed.suggestedPalette !== undefined
+				? parsePaletteV2(parsed.suggestedPalette)
+				: undefined,
 		cells: cells.slice(),
-		importSettings: parsed.schemaVersion === 2 ? parseImportSettingsV2(parsed.importSettings) : migrateImportSettingsV1(parsed.importSettings),
+		importSettings: parsed.schemaVersion === 2 || parsed.schemaVersion === 3 ? parseImportSettingsV2(parsed.importSettings) : migrateImportSettingsV1(parsed.importSettings),
 		sourceImage: sourceOverride ?? parseSourceImage(parsed.sourceImage),
 		createdAt: validTimestamp(parsed.createdAt, now),
 		updatedAt: validTimestamp(parsed.updatedAt, now)
@@ -148,7 +169,7 @@ export function createProject(input: { name: string; widthMm: number; heightMm: 
 	const cells = new Uint16Array(validation.total);
 	cells.fill(EMPTY_CELL);
 	return {
-		schemaVersion: 2,
+		schemaVersion: 3,
 		id: crypto.randomUUID(),
 		name: input.name.trim() || 'Proyek tanpa nama',
 		widthMm: input.widthMm,

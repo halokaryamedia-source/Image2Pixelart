@@ -15,17 +15,24 @@
 		onEditCell: (index: number, slot: number) => void;
 		onPick: (slot: number) => void;
 		onZoom: (zoom: number) => void;
+		onCoordinate?: (coordinate: { x: number; y: number } | null) => void;
+		selection?: { anchor: number; focus: number } | null;
+		onSelectionChange?: (selection: { anchor: number; focus: number } | null) => void;
+		fitRequest?: number;
+		editable?: boolean;
 	};
 
-	let { project, activeSlot, tool, zoom, showGrid, onPaint, onFill, onEditCell, onPick, onZoom }: Props = $props();
+	let { project, activeSlot, tool, zoom, showGrid, onPaint, onFill, onEditCell, onPick, onZoom, onCoordinate, selection = null, onSelectionChange, fitRequest = 0, editable = true }: Props = $props();
 	let canvas: HTMLCanvasElement;
 	let scroller: HTMLDivElement;
 	let viewportWidth = $state(800);
 	let viewportHeight = $state(600);
 	let hoverIndex = $state(-1);
 	let keyboardIndex = $state(0);
-	let keyboardFocused = $state(false);
+	let keyboardCursorVisible = $state(false);
 	let painting = false;
+	let selecting = false;
+	let selectAnchor = -1;
 	let lastIndex = -1;
 	let panning = $state(false);
 	let panOrigin = { x: 0, y: 0, left: 0, top: 0 };
@@ -47,7 +54,13 @@
 			});
 		});
 		observer.observe(scroller);
+		requestAnimationFrame(() => requestAnimationFrame(centerCanvas));
 		return () => { cancelAnimationFrame(resizeFrame); observer.disconnect(); };
+	});
+
+	$effect(() => {
+		fitRequest;
+		if (canvas && scroller) requestAnimationFrame(centerCanvas);
 	});
 
 	$effect(() => {
@@ -56,9 +69,18 @@
 		cellSize;
 		showGrid;
 		keyboardIndex;
-		keyboardFocused;
+		keyboardCursorVisible;
+		selection;
 		draw();
 	});
+
+	function centerCanvas() {
+		if (!canvas || !scroller) return;
+		scroller.scrollTo({
+			left: Math.max(0, canvas.offsetLeft + canvas.clientWidth / 2 - scroller.clientWidth / 2),
+			top: Math.max(0, canvas.offsetTop + canvas.clientHeight / 2 - scroller.clientHeight / 2)
+		});
+	}
 
 	function draw() {
 		if (!canvas) return;
@@ -109,6 +131,24 @@
 			}
 			drawing.stroke();
 		}
+		if (selection) {
+			const anchorColumn = selection.anchor % project.columns;
+			const anchorRow = Math.floor(selection.anchor / project.columns);
+			const focusColumn = selection.focus % project.columns;
+			const focusRow = Math.floor(selection.focus / project.columns);
+			const left = Math.min(anchorColumn, focusColumn);
+			const top = Math.min(anchorRow, focusRow);
+			const width = Math.abs(anchorColumn - focusColumn) + 1;
+			const height = Math.abs(anchorRow - focusRow) + 1;
+			drawing.fillStyle = 'rgba(0, 100, 54, .12)';
+			drawing.fillRect(ruler + left * cellSize, ruler + top * cellSize, width * cellSize, height * cellSize);
+			drawing.save();
+			drawing.strokeStyle = '#006436';
+			drawing.lineWidth = Math.max(2, Math.min(3, cellSize * 0.14));
+			drawing.setLineDash([6, 4]);
+			drawing.strokeRect(ruler + left * cellSize + 1, ruler + top * cellSize + 1, Math.max(1, width * cellSize - 2), Math.max(1, height * cellSize - 2));
+			drawing.restore();
+		}
 		drawing.fillStyle = '#EAE8E1';
 		drawing.fillRect(0, 0, displayWidth, ruler - 1);
 		drawing.fillRect(0, 0, ruler - 1, displayHeight);
@@ -119,7 +159,7 @@
 		for (let column = 0; column < project.columns; column += labelEvery) drawing.fillText(String(column + 1), ruler + (column + 0.5) * cellSize, ruler / 2);
 		for (let row = 0; row < project.rows; row += labelEvery) drawing.fillText(String(row + 1), ruler / 2, ruler + (row + 0.5) * cellSize);
 		drawing.fillStyle = '#D6D3CB'; drawing.fillRect(0, 0, ruler - 1, ruler - 1);
-		if (keyboardFocused && keyboardIndex >= 0 && keyboardIndex < project.cells.length) {
+		if (keyboardCursorVisible && keyboardIndex >= 0 && keyboardIndex < project.cells.length) {
 			const column = keyboardIndex % project.columns;
 			const row = Math.floor(keyboardIndex / project.columns);
 			drawing.strokeStyle = '#F26A3D';
@@ -138,7 +178,11 @@
 
 	function pointerDown(event: PointerEvent) {
 		if (event.button !== 0 && event.button !== 1) return;
-		if (tool === 'pan' || event.button === 1 || event.altKey) {
+		keyboardCursorVisible = false;
+		hoverIndex = -1;
+		onCoordinate?.(null);
+		if (!editable || tool === 'pan' || event.button === 1 || event.altKey) {
+			event.preventDefault();
 			panning = true;
 			panOrigin = { x: event.clientX, y: event.clientY, left: scroller.scrollLeft, top: scroller.scrollTop };
 			canvas.setPointerCapture(event.pointerId);
@@ -146,8 +190,17 @@
 		}
 		const index = cellAt(event);
 		if (index < 0) return;
+		hoverIndex = index;
+		onCoordinate?.({ x: index % project.columns + 1, y: Math.floor(index / project.columns) + 1 });
 		if (tool === 'fill') { if (activeSlot >= 0) onFill(index, activeSlot); return; }
 		if (tool === 'picker') { onPick(project.cells[index]); return; }
+		if (tool === 'select') {
+			selecting = true;
+			selectAnchor = index;
+			canvas.setPointerCapture(event.pointerId);
+			onSelectionChange?.({ anchor: index, focus: index });
+			return;
+		}
 		if ((tool === 'pencil' && activeSlot >= 0) || tool === 'eraser') {
 			painting = true;
 			lastIndex = index;
@@ -157,6 +210,7 @@
 	}
 
 	function pointerMove(event: PointerEvent) {
+		keyboardCursorVisible = false;
 		if (panning) {
 			scroller.scrollLeft = panOrigin.left - (event.clientX - panOrigin.x);
 			scroller.scrollTop = panOrigin.top - (event.clientY - panOrigin.y);
@@ -164,6 +218,11 @@
 		}
 		const index = cellAt(event);
 		hoverIndex = index;
+		onCoordinate?.(index >= 0 ? { x: index % project.columns + 1, y: Math.floor(index / project.columns) + 1 } : null);
+		if (selecting) {
+			if (index >= 0 && selectAnchor >= 0 && index !== selection?.focus) onSelectionChange?.({ anchor: selectAnchor, focus: index });
+			return;
+		}
 		if (!painting || index < 0 || index === lastIndex) return;
 		const indices = lineIndices(lastIndex, index, project.columns);
 		lastIndex = index;
@@ -172,6 +231,7 @@
 
 	function pointerUp(event: PointerEvent) {
 		if (panning) panning = false;
+		if (selecting) { selecting = false; selectAnchor = -1; }
 		if (painting) {
 			painting = false;
 			onPaint(new Uint32Array(), tool === 'eraser' ? EMPTY_CELL : activeSlot, 'end');
@@ -186,6 +246,13 @@
 	}
 
 	function keyboard(event: KeyboardEvent) {
+		if (!editable && tool !== 'pan') return;
+		if (tool === 'pan' && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+			event.preventDefault();
+			const amount = 64;
+			scroller.scrollBy({ left: event.key === 'ArrowLeft' ? -amount : event.key === 'ArrowRight' ? amount : 0, top: event.key === 'ArrowUp' ? -amount : event.key === 'ArrowDown' ? amount : 0, behavior: 'smooth' });
+			return;
+		}
 		let column = keyboardIndex % project.columns;
 		let row = Math.floor(keyboardIndex / project.columns);
 		if (event.key === 'ArrowLeft') column = Math.max(0, column - 1);
@@ -194,17 +261,23 @@
 		else if (event.key === 'ArrowDown') row = Math.min(project.rows - 1, row + 1);
 		else if (event.key === 'Home') column = 0;
 		else if (event.key === 'End') column = project.columns - 1;
-		else if (event.key === 'Enter' || event.key === ' ') {
+		else if (event.key === 'Enter') {
 			event.preventDefault();
+			keyboardCursorVisible = true;
+			hoverIndex = keyboardIndex;
+			onCoordinate?.({ x: keyboardIndex % project.columns + 1, y: Math.floor(keyboardIndex / project.columns) + 1 });
 			if (tool === 'fill' && activeSlot >= 0) onFill(keyboardIndex, activeSlot);
 			else if (tool === 'picker') onPick(project.cells[keyboardIndex]);
+			else if (tool === 'select') onSelectionChange?.({ anchor: keyboardIndex, focus: keyboardIndex });
 			else if (tool === 'eraser') onEditCell(keyboardIndex, EMPTY_CELL);
 			else if (tool === 'pencil' && activeSlot >= 0) onEditCell(keyboardIndex, activeSlot);
 			return;
 		} else return;
 		event.preventDefault();
+		keyboardCursorVisible = true;
 		keyboardIndex = row * project.columns + column;
 		hoverIndex = keyboardIndex;
+		onCoordinate?.({ x: column + 1, y: row + 1 });
 		requestAnimationFrame(() => {
 			const x = canvas.offsetLeft + ruler + (column + 0.5) * cellSize;
 			const y = canvas.offsetTop + ruler + (row + 0.5) * cellSize;
@@ -218,7 +291,7 @@
 	let hoverEmpty = $derived(hoverIndex >= 0 && project.cells[hoverIndex] === EMPTY_CELL);
 </script>
 
-<div class:dragging={panning} class="canvas-scroller" bind:this={scroller} onwheel={wheel}>
+<div class:dragging={panning} class:pan-tool={tool === 'pan'} class:select-tool={tool === 'select'} class="canvas-scroller" bind:this={scroller} onwheel={wheel}>
 	<div class="canvas-pad">
 		<canvas
 			bind:this={canvas}
@@ -227,26 +300,27 @@
 			onpointermove={pointerMove}
 			onpointerup={pointerUp}
 			onpointercancel={pointerUp}
-			onpointerleave={() => (hoverIndex = -1)}
+			onpointerleave={() => { hoverIndex = -1; onCoordinate?.(null); }}
 			onkeydown={keyboard}
-			onfocus={() => { keyboardFocused = true; hoverIndex = keyboardIndex; }}
-			onblur={() => (keyboardFocused = false)}
-			aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Home End Enter Space"
-			aria-label={`Canvas mosaic ${project.columns} kolom dan ${project.rows} baris. Gunakan tombol panah untuk berpindah sel, lalu Enter atau Spasi untuk memakai alat aktif.`}
+			onblur={() => { keyboardCursorVisible = false; hoverIndex = -1; onCoordinate?.(null); }}
+			aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Home End Enter"
+			aria-label={`Canvas mosaic ${project.columns} kolom dan ${project.rows} baris. Gunakan tombol panah untuk berpindah sel, lalu Enter untuk memakai alat aktif. Tahan Spasi untuk menggeser canvas.`}
 		></canvas>
 	</div>
 	{#if hoverColor}
-		<div class="coordinate-chip">
+		<div class:keyboard={keyboardCursorVisible} class="coordinate-chip">
+			{#if keyboardCursorVisible}<em>Fokus keyboard</em>{/if}
 			<span style={`--chip:${hoverColor.hex}`}></span>
 			C{hoverColumn} / R{hoverRow}
 			<b>{hoverColor.hex}</b>
 		</div>
 	{:else if hoverEmpty}
-		<div class="coordinate-chip empty">C{hoverColumn} / R{hoverRow}<b>SEL KOSONG</b></div>
+		<div class:keyboard={keyboardCursorVisible} class="coordinate-chip empty">{#if keyboardCursorVisible}<em>Fokus keyboard</em>{/if}C{hoverColumn} / R{hoverRow}<b>SEL KOSONG</b></div>
 	{/if}
 </div>
 
 <style>
-	.canvas-scroller{position:relative;width:100%;height:100%;overflow:auto;overscroll-behavior:contain;background:#dcdad3;background-image:radial-gradient(#c7c4bb 1px,transparent 1px);background-size:18px 18px;cursor:crosshair}.canvas-scroller.dragging{cursor:grabbing}.canvas-pad{min-width:100%;min-height:100%;padding:26px;display:grid;place-items:center;width:max-content;height:max-content}canvas{display:block;box-shadow:0 10px 30px rgba(31,37,34,.16);touch-action:none;background:#f9f8f4}canvas:focus-visible{outline:3px solid rgba(242,106,61,.55);outline-offset:4px}.coordinate-chip{position:sticky;left:16px;bottom:14px;margin:-46px 0 14px 16px;width:max-content;display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid rgba(31,37,34,.16);border-radius:6px;background:rgba(251,250,247,.94);backdrop-filter:blur(8px);font:600 10px ui-monospace,monospace;color:#606661;pointer-events:none}.coordinate-chip span{width:12px;height:12px;border:1px solid rgba(0,0,0,.16);background:var(--chip)}.coordinate-chip b{color:#262c28;font-weight:750;margin-left:3px}
+	.canvas-scroller{position:relative;width:100%;height:100%;overflow:auto;overscroll-behavior:contain;background:#dcdad3;background-image:radial-gradient(#c7c4bb 1px,transparent 1px);background-size:18px 18px;cursor:crosshair}.canvas-scroller.pan-tool canvas{cursor:grab}.canvas-scroller.select-tool canvas{cursor:cell}.canvas-scroller.dragging,.canvas-scroller.dragging canvas{cursor:grabbing}.canvas-pad{min-width:calc(100% + 240px);min-height:calc(100% + 240px);padding:26px;display:grid;place-items:center;width:max-content;height:max-content}canvas{display:block;box-shadow:0 10px 30px rgba(31,37,34,.16);touch-action:none;background:#f9f8f4}canvas:focus-visible{outline:3px solid rgba(242,106,61,.55);outline-offset:4px}.coordinate-chip{position:sticky;left:16px;bottom:14px;margin:-46px 0 14px 16px;width:max-content;display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid rgba(31,37,34,.16);border-radius:6px;background:rgba(251,250,247,.94);backdrop-filter:blur(8px);font:600 10px ui-monospace,monospace;color:#606661;pointer-events:none}.coordinate-chip span{width:12px;height:12px;border:1px solid rgba(0,0,0,.16);background:var(--chip)}.coordinate-chip b{color:#262c28;font-weight:750;margin-left:3px}
 	.canvas-scroller{min-width:0;max-width:100%;box-sizing:border-box}.canvas-pad{box-sizing:border-box}
+	.coordinate-chip em{padding-right:7px;border-right:1px solid #d8d4c9;color:#9a4c2f;font-size:9px;font-style:normal;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
 </style>

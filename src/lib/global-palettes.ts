@@ -25,8 +25,8 @@ export function cloneGlobalPalette(palette: GlobalPalette): GlobalPalette {
 	return { ...palette, colors: palette.colors.map((color) => ({ ...color })) };
 }
 
-export function createGlobalPalette(name: string, hexes: string[]): GlobalPalette {
-	const normalized = hexes.map((hex) => normalizeHex(hex));
+export function createGlobalPalette(name: string, colors: Array<string | { hex: string; name?: string }>): GlobalPalette {
+	const normalized = colors.map((color) => normalizeHex(typeof color === 'string' ? color : color.hex));
 	if (!name.trim()) throw new Error('Nama palet global wajib diisi.');
 	if (normalized.length < 1 || normalized.length > 32 || normalized.some((hex) => !hex)) throw new Error('Palet global harus memiliki 1–32 warna HEX yang valid.');
 	if (new Set(normalized).size !== normalized.length) throw new Error('Palet global tidak boleh memiliki warna duplikat.');
@@ -35,7 +35,11 @@ export function createGlobalPalette(name: string, hexes: string[]): GlobalPalett
 		id: crypto.randomUUID(),
 		name: name.trim().slice(0, 80),
 		builtIn: false,
-		colors: normalized.map((hex) => ({ id: crypto.randomUUID(), hex: hex! })),
+		colors: normalized.map((hex, index) => ({
+			id: crypto.randomUUID(),
+			hex: hex!,
+			name: typeof colors[index] === 'string' ? undefined : colors[index].name?.trim().slice(0, 80) || undefined
+		})),
 		createdAt: now,
 		updatedAt: now
 	};

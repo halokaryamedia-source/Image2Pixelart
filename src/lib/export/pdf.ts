@@ -31,7 +31,7 @@ function safeText(value: string): string {
 
 function drawFooter(page: PDFPage, font: PDFFont, pageNumber: number, totalPages: number): void {
 	page.drawLine({ start: { x: MARGIN, y: 29 }, end: { x: A4.width - MARGIN, y: 29 }, thickness: 0.5, color: rgb(0.82, 0.82, 0.79) });
-	page.drawText(`MOSAIC/PLAN  |  Halaman ${pageNumber} dari ${totalPages}`, { x: MARGIN, y: 16, size: 7.5, font, color: rgb(0.36, 0.39, 0.37) });
+	page.drawText(`MIVUBI MOSAIC PLAN  |  Halaman ${pageNumber} dari ${totalPages}`, { x: MARGIN, y: 16, size: 7.5, font, color: rgb(0.13, 0.19, 0.18) });
 }
 
 function drawOverviewGrid(page: PDFPage, project: ProjectV2, x: number, y: number, maxWidth: number, maxHeight: number): void {
@@ -53,7 +53,7 @@ function drawOverviewGrid(page: PDFPage, project: ProjectV2, x: number, y: numbe
 }
 
 function drawCover(page: PDFPage, project: ProjectV2, regular: PDFFont, bold: PDFFont): void {
-	page.drawText('MOSAIC/PLAN', { x: MARGIN, y: 786, size: 10, font: bold, color: rgb(0.91, 0.33, 0.15) });
+	page.drawText('MIVUBI  /  MOSAIC PLAN', { x: MARGIN, y: 786, size: 10, font: bold, color: rgb(0.89, 0.6, 0.11) });
 	page.drawText(safeText(project.name), { x: MARGIN, y: 743, size: 27, font: bold, color: rgb(0.12, 0.15, 0.13) });
 	page.drawText('Blueprint produksi pixel mosaic', { x: MARGIN, y: 721, size: 10, font: regular, color: rgb(0.4, 0.43, 0.41) });
 
@@ -92,7 +92,7 @@ function drawCover(page: PDFPage, project: ProjectV2, regular: PDFFont, bold: PD
 function drawDetail(page: PDFPage, project: ProjectV2, regular: PDFFont, bold: PDFFont, startColumn: number, startRow: number): void {
 	const columns = Math.min(CHUNK, project.columns - startColumn);
 	const rows = Math.min(CHUNK, project.rows - startRow);
-	page.drawText('MOSAIC/PLAN', { x: MARGIN, y: 795, size: 9, font: bold, color: rgb(0.91, 0.33, 0.15) });
+	page.drawText('MIVUBI  /  MOSAIC PLAN', { x: MARGIN, y: 795, size: 9, font: bold, color: rgb(0.89, 0.6, 0.11) });
 	page.drawText(safeText(project.name), { x: MARGIN, y: 771, size: 17, font: bold, color: rgb(0.13, 0.16, 0.14) });
 	page.drawText(`Panel kolom ${startColumn + 1}-${startColumn + columns} / baris ${startRow + 1}-${startRow + rows}`, { x: MARGIN, y: 754, size: 8.5, font: regular, color: rgb(0.4, 0.43, 0.41) });
 
@@ -144,8 +144,8 @@ export async function createProjectPdfBytes(project: ProjectV2): Promise<Uint8Ar
 		drawDetail(page, project, regular, bold, panel.startColumn, panel.startRow);
 		drawFooter(page, regular, pageNumber++, totalPages);
 	}
-	document.setTitle(safeText(`${project.name} - Mosaic blueprint`));
-	document.setAuthor('MOSAIC/PLAN');
+	document.setTitle(safeText(`${project.name} - MIVUBI Mosaic Plan blueprint`));
+	document.setAuthor('MIVUBI Mosaic Plan');
 	document.setSubject('Pixel mosaic production blueprint');
 	return document.save();
 }

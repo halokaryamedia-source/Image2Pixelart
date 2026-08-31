@@ -122,5 +122,5 @@ export function suggestPalette(samples: ColorSample[], requestedCount: number): 
 		.map((centroid, index) => ({ hex: oklabToHex(centroid), count: totals[index] }))
 		.filter((entry, index, entries) => entries.findIndex((other) => other.hex === entry.hex) === index)
 		.sort((left, right) => right.count - left.count || left.hex.localeCompare(right.hex))
-		.map((entry, slot) => ({ id: crypto.randomUUID(), slot, hex: entry.hex }));
+		.map((entry, slot) => ({ id: crypto.randomUUID(), slot, hex: entry.hex, locked: false }));
 }

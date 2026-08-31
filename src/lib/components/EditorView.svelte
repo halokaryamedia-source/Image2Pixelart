@@ -1,423 +1,311 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import MosaicCanvas from '$lib/components/MosaicCanvas.svelte';
 	import VisualCropper from '$lib/components/VisualCropper.svelte';
+	import CollaborationBar from '$lib/components/CollaborationBar.svelte';
 	import { EditHistory } from '$lib/history';
-	import { convertImageFile } from '$lib/image-converter';
+	import { convertProjectImage, type ProjectImageConversionOptions } from '$lib/image-project';
 	import { cloneProject, serializeProject } from '$lib/project';
-	import type { CellPatch, EditorTool, GlobalPalette, ProjectV2 } from '$lib/types';
+	import { DEFAULT_EDITOR_PANEL_PREFERENCES, EDITOR_PANEL_PREFERENCES_KEY, parseEditorPanelPreferences, type EditorPanelPreferences } from '$lib/panel-preferences';
+	import type { CellPatch, EditorTool, GlobalPalette, ProjectPaletteEntry, ProjectV2 } from '$lib/types';
+	import type { PresenceParticipant } from '$lib/cloud/types';
 	import { EMPTY_CELL } from '$lib/types';
 	import { createProjectPng } from '$lib/export/png';
-	import { downloadBlob, downloadText, fileToDataUrl, safeFileName } from '$lib/utils/download';
+	import { downloadBlob, downloadText, safeFileName } from '$lib/utils/download';
 	import { cmToMm, countSlots, floodFillIndices, resizeGridCells, validateGridMm } from '$lib/utils/grid';
 	import { gridMatrixCsv, materialListCsv } from '$lib/utils/csv';
 	import { normalizeHex } from '$lib/utils/color';
-	import { centeredCropRect } from '$lib/utils/image-crop';
-	import { applyPaletteHexes, removePaletteSlot } from '$lib/utils/palette';
+	import { applyPaletteHexes, paletteHasSameColors, removePaletteSlot } from '$lib/utils/palette';
+	import { resolveEditorShortcut, type EditorShortcut } from '$lib/editor-shortcuts';
 
 	type Props = {
-		project: ProjectV2;
-		saveState: 'saved' | 'saving' | 'error';
-		globalPalettes: GlobalPalette[];
-		onChange: (project: ProjectV2) => void;
-		onBack: () => void;
-		onCreateGlobalPalette: (input: { name: string; hexes: string[] }) => Promise<void>;
+		project: ProjectV2; saveState: 'saved' | 'saving' | 'error'; globalPalettes: GlobalPalette[];
+		onChange: (project: ProjectV2) => void; onBack: () => void;
+		onCreateGlobalPalette: (input: { name: string; colors: Array<{ hex: string; name?: string }> }) => Promise<void>;
 		onDeleteGlobalPalette: (id: string) => Promise<void>;
+		onSaveNow?: () => Promise<void>;
+		editable?: boolean;
+		collaboration?: { participants: PresenceParticipant[]; deviceId: string; ownerDeviceId: string; activeEditorDeviceId: string | null; state: 'connecting' | 'connected' | 'disconnected'; requestingEdit: boolean; revision: number; onRequest: () => void; onCancelRequest: () => void; onGrant: (deviceId: string) => void };
+		onSourceImageChange?: (file: File, project: ProjectV2) => Promise<void>;
 	};
-	let { project, saveState, globalPalettes, onChange, onBack, onCreateGlobalPalette, onDeleteGlobalPalette }: Props = $props();
-	let tool = $state<EditorTool>('pencil');
-	let activeSlot = $state(-1);
-	let zoom = $state(1);
-	let showGrid = $state(true);
-	let panel = $state<'import' | 'palette'>('import');
+	let { project, saveState, globalPalettes, onChange, onBack, onCreateGlobalPalette, onDeleteGlobalPalette, onSaveNow, editable = true, collaboration, onSourceImageChange }: Props = $props();
+	let tool = $state<EditorTool>('pencil'); let activeSlot = $state(-1); let zoom = $state(1); let showGrid = $state(true);
+	let selection = $state<{ anchor: number; focus: number } | null>(null); let fitRequest = $state(0);
+	let leftTab = $state<'reference' | 'reconstruction' | 'properties'>('reference'); let rightTab = $state<'palette' | 'detail'>('palette');
+	let panels = $state<EditorPanelPreferences>({ ...DEFAULT_EDITOR_PANEL_PREFERENCES });
+	let showPanelMenu = $state(false); let showColorMenu = $state(false); let coordinate = $state<{ x: number; y: number } | null>(null);
 	type ExportFormat = 'pdf' | 'png' | 'png-grid' | 'materials-csv' | 'matrix-csv' | 'project';
-	let exportFormat = $state<ExportFormat>('pdf');
-	let showCanvasSettings = $state(false);
-	let showPaletteLibrary = $state(false);
-	let paletteLibraryView = $state<'library' | 'create'>('library');
-	let paletteDraftName = $state('');
-	let paletteDraftHexes = $state<string[]>(['#000000']);
-	let savingGlobalPalette = $state(false);
-	let canvasWidthCm = $state(1);
-	let canvasHeightCm = $state(1);
-	let canvasCellCm = $state(1);
-	let processing = $state(false);
-	let exporting = $state<string | null>(null);
-	let notice = $state<string | null>(null);
-	let error = $state<string | null>(null);
-	let newHex = $state('#000000');
-	let stale = $state(false);
-	let conversionGeneration = 0;
-	let initializedProject = '';
-	const history = new EditHistory();
-	let historyVersion = $state(0);
-	let strokeBefore = new Map<number, number>();
+	let exportFormat = $state<ExportFormat>('pdf'); let showCanvasSettings = $state(false); let showPaletteLibrary = $state(false); let showShortcuts = $state(false);
+	let paletteLibraryView = $state<'library' | 'create'>('library'); let paletteDraftName = $state('');
+	let paletteDraftColors = $state<Array<{ hex: string; name?: string }>>([{ hex: '#000000' }]); let savingGlobalPalette = $state(false);
+	let canvasWidthCm = $state(1); let canvasHeightCm = $state(1); let canvasCellCm = $state(1);
+	let processing = $state(false); let exporting = $state<string | null>(null); let notice = $state<string | null>(null); let error = $state<string | null>(null);
+	let newHex = $state('#000000'); let stale = $state(false); let conversionGeneration = 0; let initializedProject = '';
+	const history = new EditHistory(); let historyVersion = $state(0); let strokeBefore = new Map<number, number>();
 	let structuralSnapshots = new Map<string, { before: ProjectV2; after: ProjectV2 }>();
+	let toolBeforeTemporaryPan: EditorTool | null = null;
 
-	let canUndo = $derived.by(() => historyVersion >= 0 && history.canUndo);
-	let canRedo = $derived.by(() => historyVersion >= 0 && history.canRedo);
-	let counts = $derived(countSlots(project.cells, project.palette.length));
-	let filledCount = $derived(counts.reduce((sum, count) => sum + count, 0));
-	let emptyCount = $derived(project.cells.length - filledCount);
-	let pageCount = $derived(1 + Math.ceil(project.columns / 24) * Math.ceil(project.rows / 24));
+	let canUndo = $derived.by(() => historyVersion >= 0 && history.canUndo); let canRedo = $derived.by(() => historyVersion >= 0 && history.canRedo);
+	let counts = $derived(countSlots(project.cells, project.palette.length)); let filledCount = $derived(counts.reduce((sum, count) => sum + count, 0));
+	let emptyCount = $derived(project.cells.length - filledCount); let pageCount = $derived(1 + Math.ceil(project.columns / 24) * Math.ceil(project.rows / 24));
+	let selectedEntry = $derived(activeSlot >= 0 ? project.palette[activeSlot] : undefined); let paletteLocked = $derived(project.palette.some((entry) => entry.locked));
 	let canvasValidation = $derived(validateGridMm(cmToMm(canvasWidthCm), cmToMm(canvasHeightCm), cmToMm(canvasCellCm)));
-	let paletteDraftValid = $derived.by(() => {
-		const normalized = paletteDraftHexes.map((hex) => normalizeHex(hex));
-		return !!paletteDraftName.trim() && normalized.length >= 1 && normalized.length <= 32 && normalized.every(Boolean) && new Set(normalized).size === normalized.length;
+	let paletteDraftValid = $derived.by(() => { const normalized = paletteDraftColors.map((color) => normalizeHex(color.hex)); return !!paletteDraftName.trim() && normalized.length >= 1 && normalized.length <= 32 && normalized.every(Boolean) && new Set(normalized).size === normalized.length; });
+
+	onMount(() => {
+		panels = parseEditorPanelPreferences(localStorage.getItem(EDITOR_PANEL_PREFERENCES_KEY));
+		window.addEventListener('keydown', handleShortcutKeydown, true);
+		window.addEventListener('keyup', handleShortcutKeyup, true);
+		return () => {
+			window.removeEventListener('keydown', handleShortcutKeydown, true);
+			window.removeEventListener('keyup', handleShortcutKeyup, true);
+		};
+	});
+	$effect(() => { if (initializedProject !== project.id) { activeSlot = project.palette.length ? 0 : -1; selection = null; initializedProject = project.id; stale = false; } });
+	$effect(() => { if (!editable && tool !== 'pan' && tool !== 'picker') tool = 'pan'; });
+	let selectionIndices = $derived.by(() => {
+		if (!selection) return new Uint32Array();
+		const anchorColumn = selection.anchor % project.columns; const anchorRow = Math.floor(selection.anchor / project.columns);
+		const focusColumn = selection.focus % project.columns; const focusRow = Math.floor(selection.focus / project.columns);
+		const left = Math.min(anchorColumn, focusColumn); const right = Math.max(anchorColumn, focusColumn);
+		const top = Math.min(anchorRow, focusRow); const bottom = Math.max(anchorRow, focusRow); const indices: number[] = [];
+		for (let row = top; row <= bottom; row += 1) for (let column = left; column <= right; column += 1) indices.push(row * project.columns + column);
+		return Uint32Array.from(indices);
 	});
 
-	$effect(() => {
-		if (initializedProject !== project.id) {
-			activeSlot = project.palette.length ? 0 : -1;
-			initializedProject = project.id; stale = false;
-		}
-	});
-
-	function update(next: ProjectV2) { onChange({ ...next, updatedAt: new Date().toISOString() }); }
+	function update(next: ProjectV2) { if (!editable) { error = 'Mode viewer aktif. Minta akses edit terlebih dahulu.'; return; } onChange({ ...next, updatedAt: new Date().toISOString() }); }
 	function flash(message: string) { notice = message; setTimeout(() => { if (notice === message) notice = null; }, 2_800); }
-	function paletteIsActive(hexes: string[]) {
-		return project.palette.length === hexes.length && project.palette.every((entry, index) => entry.hex === normalizeHex(hexes[index]));
+	function persistPanels(next: EditorPanelPreferences) { panels = next; localStorage.setItem(EDITOR_PANEL_PREFERENCES_KEY, JSON.stringify(next)); }
+	function togglePanel(key: keyof EditorPanelPreferences) { persistPanels({ ...panels, [key]: !panels[key] }); }
+	function openReference() { if (!panels.left) persistPanels({ ...panels, left: true }); leftTab = 'reference'; }
+	function paletteIsActive(colors: Array<{ hex: string }>) { return paletteHasSameColors(project.palette, colors); }
+	function requireUnlocked(): boolean { if (!paletteLocked) return true; error = 'Buka kunci semua warna sebelum mengganti keseluruhan palet.'; rightTab = 'detail'; if (!panels.right) persistPanels({ ...panels, right: true }); return false; }
+
+	function isTypingTarget(target: EventTarget | null): boolean {
+		return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+	}
+	function chooseTool(next: EditorTool) {
+		if (!editable && !['picker', 'pan'].includes(next)) return;
+		if (['pencil', 'fill'].includes(next) && activeSlot < 0) return;
+		tool = next;
+		if (next !== 'select') selection = null;
+	}
+	function closeTransientUi() {
+		showShortcuts = false; showCanvasSettings = false; showPaletteLibrary = false;
+		showPanelMenu = false; showColorMenu = false; selection = null;
+	}
+	async function saveNow() {
+		if (!editable || !onSaveNow) return;
+		try { await onSaveNow(); flash('Perubahan tersimpan ke cloud.'); }
+		catch (caught) { error = caught instanceof Error ? caught.message : 'Perubahan gagal disimpan.'; }
+	}
+	function runShortcut(shortcut: EditorShortcut) {
+		if (typeof shortcut === 'object') {
+			if (shortcut.slot < project.palette.length) { activeSlot = shortcut.slot; rightTab = 'detail'; }
+			return;
+		}
+		if (shortcut === 'pencil' || shortcut === 'fill' || shortcut === 'eraser' || shortcut === 'picker' || shortcut === 'select') chooseTool(shortcut);
+		else if (shortcut === 'undo' && editable) undo();
+		else if (shortcut === 'redo' && editable) redo();
+		else if (shortcut === 'save') void saveNow();
+		else if (shortcut === 'export') void runSelectedExport();
+		else if (shortcut === 'grid') showGrid = !showGrid;
+		else if (shortcut === 'zoom-in') zoom = Math.min(6, zoom * 1.2);
+		else if (shortcut === 'zoom-out') zoom = Math.max(.35, zoom / 1.2);
+		else if (shortcut === 'fit') fitCanvas();
+		else if (shortcut === 'escape') closeTransientUi();
+		else if (shortcut === 'help') showShortcuts = !showShortcuts;
+	}
+	function handleShortcutKeydown(event: KeyboardEvent) {
+		const shortcut = resolveEditorShortcut(event);
+		if (!shortcut || (isTypingTarget(event.target) && shortcut !== 'escape')) return;
+		const modalOpen = showCanvasSettings || showPaletteLibrary || showShortcuts;
+		if (modalOpen && shortcut !== 'escape' && shortcut !== 'help') return;
+		event.preventDefault();
+		if (shortcut === 'temporary-pan') {
+			if (!event.repeat && toolBeforeTemporaryPan === null) { toolBeforeTemporaryPan = tool; tool = 'pan'; }
+			return;
+		}
+		runShortcut(shortcut);
+	}
+	function handleShortcutKeyup(event: KeyboardEvent) {
+		if ((event.code === 'Space' || event.key === ' ') && toolBeforeTemporaryPan !== null) {
+			event.preventDefault(); tool = toolBeforeTemporaryPan; toolBeforeTemporaryPan = null;
+		}
 	}
 
 	function commitStructural(before: ProjectV2, after: ProjectV2, labelText: string) {
-		const label = `${labelText}:${Date.now()}:${Math.random()}`;
-		const sameLength = before.cells.length === after.cells.length;
+		const label = `${labelText}:${Date.now()}:${Math.random()}`; const sameLength = before.cells.length === after.cells.length;
 		const indices = sameLength ? Uint32Array.from({ length: before.cells.length }, (_, index) => index) : Uint32Array.of(0);
 		history.push({ indices, before: sameLength ? before.cells.slice() : Uint16Array.of(before.cells[0] ?? EMPTY_CELL), after: sameLength ? after.cells.slice() : Uint16Array.of(after.cells[0] ?? EMPTY_CELL), label });
-		structuralSnapshots.set(label, { before: cloneProject(before), after: cloneProject(after) });
-		historyVersion += 1; update(after);
+		structuralSnapshots.set(label, { before: cloneProject(before), after: cloneProject(after) }); historyVersion += 1; update(after);
 	}
-
 	function applyCellPatch(indices: Uint32Array, nextSlot: number, label: string) {
-		if (indices.length === 0) return;
-		const cells = project.cells.slice(); const changed: number[] = []; const before: number[] = [];
+		if (!indices.length) return; const cells = project.cells.slice(); const changed: number[] = []; const before: number[] = [];
 		indices.forEach((index) => { if (cells[index] === nextSlot) return; changed.push(index); before.push(cells[index]); cells[index] = nextSlot; });
-		if (!changed.length) return;
-		history.push({ indices: Uint32Array.from(changed), before: Uint16Array.from(before), after: Uint16Array.from({ length: changed.length }, () => nextSlot), label });
-		historyVersion += 1; update({ ...project, cells });
+		if (!changed.length) return; history.push({ indices: Uint32Array.from(changed), before: Uint16Array.from(before), after: Uint16Array.from({ length: changed.length }, () => nextSlot), label }); historyVersion += 1; update({ ...project, cells });
 	}
-
-	function paint(indices: Uint32Array, slot: number, phase: 'start' | 'move' | 'end') {
+	function paint(indices: Uint32Array, nextSlot: number, phase: 'start' | 'move' | 'end') {
 		if (phase === 'start') strokeBefore = new Map();
-		if (phase !== 'end') {
-			const cells = project.cells.slice(); let changed = false;
-			indices.forEach((index) => { if (!strokeBefore.has(index)) strokeBefore.set(index, cells[index]); if (cells[index] !== slot) { cells[index] = slot; changed = true; } });
-			if (changed) update({ ...project, cells }); return;
-		}
-		const changedEntries = [...strokeBefore.entries()].filter(([index, before]) => project.cells[index] !== before);
-		if (changedEntries.length) {
-			const patch: CellPatch = { indices: Uint32Array.from(changedEntries.map(([index]) => index)), before: Uint16Array.from(changedEntries.map(([, before]) => before)), after: Uint16Array.from(changedEntries.map(([index]) => project.cells[index])), label: tool === 'eraser' ? 'Hapus stroke' : 'Gambar stroke' };
-			history.push(patch); historyVersion += 1;
-		}
+		if (phase !== 'end') { const cells = project.cells.slice(); let changed = false; indices.forEach((index) => { if (!strokeBefore.has(index)) strokeBefore.set(index, cells[index]); if (cells[index] !== nextSlot) { cells[index] = nextSlot; changed = true; } }); if (changed) update({ ...project, cells }); return; }
+		const changed = [...strokeBefore.entries()].filter(([index, before]) => project.cells[index] !== before);
+		if (changed.length) { const patch: CellPatch = { indices: Uint32Array.from(changed.map(([index]) => index)), before: Uint16Array.from(changed.map(([, before]) => before)), after: Uint16Array.from(changed.map(([index]) => project.cells[index])), label: tool === 'eraser' ? 'Hapus stroke' : 'Gambar stroke' }; history.push(patch); historyVersion += 1; }
 		strokeBefore.clear();
 	}
-
 	function fill(index: number, slot: number) { applyCellPatch(floodFillIndices(project.cells, project.columns, project.rows, index, slot), slot, 'Isi area'); }
-	function undo() {
-		const result = history.undo(project.cells); if (!result.label) return;
-		const structural = structuralSnapshots.get(result.label);
-		const next = structural ? cloneProject(structural.before) : { ...project, cells: result.cells };
-		historyVersion += 1; activeSlot = next.palette.length ? Math.min(Math.max(activeSlot, 0), next.palette.length - 1) : -1; update(next); flash(`Undo: ${result.label.replace(/:.+$/, '')}`);
-	}
-	function redo() {
-		const result = history.redo(project.cells); if (!result.label) return;
-		const structural = structuralSnapshots.get(result.label);
-		const next = structural ? cloneProject(structural.after) : { ...project, cells: result.cells };
-		historyVersion += 1; activeSlot = next.palette.length ? Math.min(Math.max(activeSlot, 0), next.palette.length - 1) : -1; update(next); flash(`Redo: ${result.label.replace(/:.+$/, '')}`);
-	}
+	function fillSelection(slot: number) { applyCellPatch(selectionIndices, slot, slot === EMPTY_CELL ? 'Kosongkan pilihan' : 'Isi pilihan'); }
+	function fitCanvas() { zoom = 1; fitRequest += 1; }
+	function undo() { const result = history.undo(project.cells); if (!result.label) return; const structural = structuralSnapshots.get(result.label); const next = structural ? cloneProject(structural.before) : { ...project, cells: result.cells }; historyVersion += 1; activeSlot = next.palette.length ? Math.min(Math.max(activeSlot, 0), next.palette.length - 1) : -1; update(next); flash(`Undo: ${result.label.replace(/:.+$/, '')}`); }
+	function redo() { const result = history.redo(project.cells); if (!result.label) return; const structural = structuralSnapshots.get(result.label); const next = structural ? cloneProject(structural.after) : { ...project, cells: result.cells }; historyVersion += 1; activeSlot = next.palette.length ? Math.min(Math.max(activeSlot, 0), next.palette.length - 1) : -1; update(next); flash(`Redo: ${result.label.replace(/:.+$/, '')}`); }
 
-	function updateSettings(changes: Partial<ProjectV2['importSettings']>, marksStale = true) {
-		const importSettings = { ...project.importSettings, ...changes };
-		update({ ...project, importSettings });
-		if (project.sourceImage && marksStale) stale = true;
-	}
-
-	function openCanvasSize() {
-		canvasWidthCm = project.widthMm / 10;
-		canvasHeightCm = project.heightMm / 10;
-		canvasCellCm = project.cellMm / 10;
-		showCanvasSettings = true;
-	}
-
-	function applyCanvasSize(event: SubmitEvent) {
-		event.preventDefault();
-		if (!canvasValidation.valid) return;
-		const widthMm = cmToMm(canvasWidthCm);
-		const heightMm = cmToMm(canvasHeightCm);
-		const cellMm = cmToMm(canvasCellCm);
-		const gridChanged = canvasValidation.columns !== project.columns || canvasValidation.rows !== project.rows;
-		const aspectChanged = canvasValidation.columns * project.rows !== project.columns * canvasValidation.rows;
-		if (widthMm === project.widthMm && heightMm === project.heightMm && cellMm === project.cellMm) { showCanvasSettings = false; return; }
-		const before = cloneProject(project);
-		const cells = gridChanged ? resizeGridCells(project.cells, project.columns, project.rows, canvasValidation.columns, canvasValidation.rows) : project.cells.slice();
-		const after: ProjectV2 = {
-			...project,
-			widthMm,
-			heightMm,
-			cellMm,
-			columns: canvasValidation.columns,
-			rows: canvasValidation.rows,
-			cells,
-			importSettings: { ...project.importSettings, crop: aspectChanged && project.importSettings.placement === 'crop' ? null : project.importSettings.crop }
-		};
-		commitStructural(before, after, 'Ubah ukuran canvas');
-		zoom = 1;
-		if (project.sourceImage && gridChanged) stale = true;
-		showCanvasSettings = false;
-		flash(`Canvas diubah menjadi ${after.columns} × ${after.rows} sel.`);
-	}
-
-	async function importImage(event: Event) {
-		const input = event.currentTarget as HTMLInputElement; const file = input.files?.[0]; input.value = ''; if (!file) return;
-		const suggest = !project.sourceImage || confirm('Buat suggestion palet baru dari gambar ini?\n\nOK = suggestion baru\nBatal = pertahankan palet sekarang');
-		await runImageConversion(file, suggest, true);
-	}
-
-	async function sourceFile(): Promise<File> {
-		if (!project.sourceImage) throw new Error('Belum ada gambar sumber.');
-		const response = await fetch(project.sourceImage.dataUrl); const blob = await response.blob();
-		return new File([blob], project.sourceImage.name, { type: project.sourceImage.type });
-	}
-	async function recreateSource() { try { await runImageConversion(await sourceFile(), false, false); } catch (caught) { error = caught instanceof Error ? caught.message : 'Canvas gagal dibuat ulang.'; } }
-	async function refreshSuggestion() { try { await runImageConversion(await sourceFile(), true, false); } catch (caught) { error = caught instanceof Error ? caught.message : 'Suggestion gagal dibuat ulang.'; } }
-
-	async function runImageConversion(file: File, suggestPalette: boolean, replaceSource: boolean) {
-		const generation = ++conversionGeneration; processing = true; error = null;
-		const before = cloneProject(project);
-		try {
-			const conversionProject = replaceSource ? { ...project, importSettings: { ...project.importSettings, crop: null } } : project;
-			const [result, dataUrl] = await Promise.all([convertImageFile(file, conversionProject, suggestPalette), replaceSource ? fileToDataUrl(file) : Promise.resolve(project.sourceImage?.dataUrl)]);
-			if (generation !== conversionGeneration) return;
-			const crop = project.importSettings.placement === 'crop'
-				? project.importSettings.crop ?? centeredCropRect(result.imageWidth, result.imageHeight, project.columns / project.rows)
-				: project.importSettings.crop;
-			const after: ProjectV2 = {
-				...project,
-				palette: result.palette,
-				suggestedPalette: suggestPalette ? result.palette.map((entry) => ({ ...entry })) : project.suggestedPalette,
-				cells: result.cells.slice(),
-				importSettings: { ...project.importSettings, crop },
-				sourceImage: replaceSource ? { name: file.name, type: file.type, dataUrl: dataUrl!, width: result.imageWidth, height: result.imageHeight } : project.sourceImage,
-				updatedAt: new Date().toISOString()
-			};
-			commitStructural(before, after, suggestPalette ? 'Buat suggestion' : 'Recreate canvas');
-			activeSlot = after.palette.length ? 0 : -1; stale = false;
-			flash(suggestPalette ? `${after.palette.length} warna disarankan dari gambar.` : 'Canvas berhasil dibuat ulang.');
-		} catch (caught) { if (generation === conversionGeneration) error = caught instanceof Error ? caught.message : 'Gambar tidak dapat dikonversi.'; }
+	function updateSettings(changes: Partial<ProjectV2['importSettings']>, marksStale = true) { update({ ...project, importSettings: { ...project.importSettings, ...changes } }); if (project.sourceImage && marksStale) stale = true; }
+	async function sourceFile() { if (!project.sourceImage) throw new Error('Belum ada gambar sumber.'); const response = await fetch(project.sourceImage.dataUrl); return new File([await response.blob()], project.sourceImage.name, { type: project.sourceImage.type }); }
+	async function runConversion(file: File, options: ProjectImageConversionOptions, label: string) {
+		const generation = ++conversionGeneration; processing = true; error = null; const before = cloneProject(project);
+		try { const after = await convertProjectImage(project, file, options); if (generation !== conversionGeneration) return; commitStructural(before, after, label); if (options.replaceSource && onSourceImageChange) await onSourceImageChange(file, after); activeSlot = after.palette.length ? 0 : -1; stale = !options.applyCells; flash(label === 'Buat suggestion' ? `${after.suggestedPalette?.length ?? 0} warna suggestion siap.` : `${label} berhasil.`); }
+		catch (caught) { if (generation === conversionGeneration) error = caught instanceof Error ? caught.message : 'Gambar tidak dapat dikonversi.'; }
 		finally { if (generation === conversionGeneration) processing = false; }
 	}
-
-	function addPaletteColor() {
-		const hex = normalizeHex(newHex);
-		if (!hex) { error = 'Masukkan HEX yang valid, misalnya #45A8B5.'; return; }
-		if (project.palette.length >= 32) { error = 'Maksimum 32 warna per proyek.'; return; }
-		if (project.palette.some((entry) => entry.hex === hex)) { error = 'Warna HEX tersebut sudah ada.'; return; }
-		const before = cloneProject(project); const palette = [...project.palette, { id: crypto.randomUUID(), slot: project.palette.length, hex }];
-		commitStructural(before, { ...project, palette }, 'Tambah warna'); activeSlot = palette.length - 1; if (project.sourceImage) stale = true;
+	async function importImage(event: Event) {
+		const input = event.currentTarget as HTMLInputElement; const file = input.files?.[0]; input.value = '';
+		if (!file) return;
+		await runConversion(file, { suggestPalette: true, applyPalette: false, applyCells: false, replaceSource: true }, 'Ganti gambar');
 	}
+	async function refreshSuggestion() { try { await runConversion(await sourceFile(), { suggestPalette: true, applyPalette: false, applyCells: false, replaceSource: false }, 'Buat suggestion'); } catch (caught) { error = caught instanceof Error ? caught.message : 'Suggestion gagal dibuat.'; } }
+	function adoptSuggestion() { if (!project.suggestedPalette?.length || !requireUnlocked()) return; const before = cloneProject(project); const mapped = applyPaletteHexes(project.palette, project.cells, project.suggestedPalette); commitStructural(before, { ...project, ...mapped }, 'Gunakan palet suggestion'); activeSlot = 0; rightTab = 'palette'; showPaletteLibrary = false; flash('Palet suggestion digunakan dan warna grid langsung disesuaikan.'); }
+	async function applyGrid() { if (!project.sourceImage || !project.palette.length) return; try { await runConversion(await sourceFile(), { suggestPalette: false, applyPalette: false, applyCells: true, replaceSource: false }, 'Terapkan ke grid'); stale = false; } catch (caught) { error = caught instanceof Error ? caught.message : 'Grid gagal dibuat.'; } }
+	function updateReconstruction() { if (!project.palette.length) { leftTab = 'reconstruction'; flash('Ambil palet suggestion sebelum memperbarui grid.'); return; } void applyGrid(); }
 
-	function setPaletteHex(id: string, value: string) {
-		const hex = normalizeHex(value); if (!hex) return;
-		const entry = project.palette.find((color) => color.id === id); if (!entry || entry.hex === hex) return;
-		if (project.palette.some((color) => color.id !== id && color.hex === hex)) { error = 'Warna HEX tersebut sudah ada.'; return; }
-		const before = cloneProject(project); const palette = project.palette.map((color) => color.id === id ? { ...color, hex } : color);
-		commitStructural(before, { ...project, palette }, 'Ubah HEX');
-	}
+	function addPaletteColor() { const hex = normalizeHex(newHex); if (!hex) { error = 'Masukkan HEX yang valid.'; return; } if (project.palette.length >= 32) { error = 'Maksimum 32 warna.'; return; } if (project.palette.some((entry) => entry.hex === hex)) { error = 'Warna HEX tersebut sudah ada.'; return; } const before = cloneProject(project); const palette = [...project.palette, { id: crypto.randomUUID(), slot: project.palette.length, hex, locked: false }]; commitStructural(before, { ...project, palette }, 'Tambah warna'); activeSlot = palette.length - 1; rightTab = 'detail'; }
+	function setPaletteHex(entry: ProjectPaletteEntry, value: string) { if (entry.locked) return; const hex = normalizeHex(value); if (!hex || hex === entry.hex) return; if (project.palette.some((color) => color.id !== entry.id && color.hex === hex)) { error = 'Warna HEX tersebut sudah ada.'; return; } const before = cloneProject(project); const palette = project.palette.map((color) => color.id === entry.id ? { ...color, hex } : color); commitStructural(before, { ...project, palette }, 'Ubah HEX'); }
+	function setPaletteName(entry: ProjectPaletteEntry, value: string) { if (entry.locked) return; const name = value.trim().slice(0, 80) || undefined; if (name === entry.name) return; const before = cloneProject(project); const palette = project.palette.map((color) => color.id === entry.id ? { ...color, name } : color); commitStructural(before, { ...project, palette }, 'Ubah nama warna'); }
+	function toggleLock(entry: ProjectPaletteEntry) { const before = cloneProject(project); const palette = project.palette.map((color) => color.id === entry.id ? { ...color, locked: !color.locked } : color); commitStructural(before, { ...project, palette }, entry.locked ? 'Buka kunci warna' : 'Kunci warna'); showColorMenu = false; }
+	function removeColor(entry: ProjectPaletteEntry) { if (entry.locked) { error = 'Buka kunci warna sebelum menghapusnya.'; return; } const before = cloneProject(project); const result = removePaletteSlot(project.palette, project.cells, entry.slot); commitStructural(before, { ...project, ...result }, 'Hapus warna'); activeSlot = result.palette.length ? Math.min(entry.slot, result.palette.length - 1) : -1; showColorMenu = false; }
 
-	function removeColor(slot: number) {
-		const before = cloneProject(project); const result = removePaletteSlot(project.palette, project.cells, slot);
-		commitStructural(before, { ...project, ...result }, 'Hapus warna');
-		activeSlot = result.palette.length ? Math.min(Math.max(0, activeSlot > slot ? activeSlot - 1 : activeSlot), result.palette.length - 1) : -1;
-		if (project.sourceImage) stale = true;
-	}
+	function openGlobalPaletteLibrary() { paletteLibraryView = 'library'; showPaletteLibrary = true; }
+	function startPaletteDraft(name: string, colors: Array<{ hex: string; name?: string }>) { paletteDraftName = name; paletteDraftColors = colors.length ? colors.slice(0, 32).map((color) => ({ ...color })) : [{ hex: '#000000' }]; paletteLibraryView = 'create'; showPaletteLibrary = true; showColorMenu = false; }
+	async function savePaletteDraft(event: SubmitEvent) { event.preventDefault(); if (!paletteDraftValid || savingGlobalPalette) return; savingGlobalPalette = true; error = null; try { await onCreateGlobalPalette({ name: paletteDraftName, colors: paletteDraftColors.map((color) => ({ hex: normalizeHex(color.hex)!, name: color.name })) }); paletteLibraryView = 'library'; flash('Palet ditambahkan ke library global.'); } catch (caught) { error = caught instanceof Error ? caught.message : 'Palet global gagal disimpan.'; } finally { savingGlobalPalette = false; } }
+	function applyPalette(name: string, colors: Array<{ hex: string; name?: string }>) { if (!requireUnlocked()) return; const before = cloneProject(project); const mapped = applyPaletteHexes(project.palette, project.cells, colors); commitStructural(before, { ...project, ...mapped }, `Gunakan palet ${name}`); activeSlot = 0; showPaletteLibrary = false; flash(`Palet “${name}” digunakan dan warna grid langsung disesuaikan.`); }
+	async function deleteUserPalette(palette: GlobalPalette) { if (palette.builtIn || !confirm(`Hapus palet global “${palette.name}”?`)) return; try { await onDeleteGlobalPalette(palette.id); flash('Palet global dihapus.'); } catch (caught) { error = caught instanceof Error ? caught.message : 'Palet global gagal dihapus.'; } }
 
-	function openGlobalPaletteLibrary() {
-		paletteLibraryView = 'library';
-		showPaletteLibrary = true;
-	}
-
-	function startPaletteDraft(name: string, hexes: string[]) {
-		paletteDraftName = name;
-		paletteDraftHexes = hexes.length ? hexes.slice(0, 32) : ['#000000'];
-		paletteLibraryView = 'create';
-		showPaletteLibrary = true;
-	}
-
-	function setPaletteDraftHex(index: number, value: string) {
-		paletteDraftHexes = paletteDraftHexes.map((hex, candidate) => candidate === index ? value : hex);
-	}
-
-	function removePaletteDraftHex(index: number) {
-		if (paletteDraftHexes.length <= 1) return;
-		paletteDraftHexes = paletteDraftHexes.filter((_, candidate) => candidate !== index);
-	}
-
-	async function savePaletteDraft(event: SubmitEvent) {
-		event.preventDefault();
-		if (!paletteDraftValid || savingGlobalPalette) return;
-		savingGlobalPalette = true; error = null;
-		try {
-			await onCreateGlobalPalette({ name: paletteDraftName, hexes: paletteDraftHexes.map((hex) => normalizeHex(hex)!) });
-			paletteLibraryView = 'library';
-			flash('Palet berhasil ditambahkan ke library global.');
-		} catch (caught) { error = caught instanceof Error ? caught.message : 'Palet global gagal disimpan.'; }
-		finally { savingGlobalPalette = false; }
-	}
-
-	function applyPalette(name: string, hexes: string[]) {
-		const before = cloneProject(project);
-		const mapped = applyPaletteHexes(project.palette, project.cells, hexes);
-		commitStructural(before, { ...project, ...mapped }, `Gunakan palet ${name}`);
-		activeSlot = mapped.palette.length ? Math.min(Math.max(activeSlot, 0), mapped.palette.length - 1) : -1;
-		showPaletteLibrary = false;
-		flash(`Palet “${name}” diterapkan ke canvas.`);
-	}
-
-	async function deleteUserPalette(palette: GlobalPalette) {
-		if (palette.builtIn || !confirm(`Hapus palet global “${palette.name}”?`)) return;
-		try { await onDeleteGlobalPalette(palette.id); flash('Palet global dihapus.'); }
-		catch (caught) { error = caught instanceof Error ? caught.message : 'Palet global gagal dihapus.'; }
-	}
+	function openCanvasSize() { canvasWidthCm = project.widthMm / 10; canvasHeightCm = project.heightMm / 10; canvasCellCm = project.cellMm / 10; showCanvasSettings = true; }
+	function applyCanvasSize(event: SubmitEvent) { event.preventDefault(); if (!canvasValidation.valid) return; const widthMm = cmToMm(canvasWidthCm); const heightMm = cmToMm(canvasHeightCm); const cellMm = cmToMm(canvasCellCm); if (widthMm === project.widthMm && heightMm === project.heightMm && cellMm === project.cellMm) { showCanvasSettings = false; return; } const before = cloneProject(project); const gridChanged = canvasValidation.columns !== project.columns || canvasValidation.rows !== project.rows; const cells = gridChanged ? resizeGridCells(project.cells, project.columns, project.rows, canvasValidation.columns, canvasValidation.rows) : project.cells.slice(); const after = { ...project, widthMm, heightMm, cellMm, columns: canvasValidation.columns, rows: canvasValidation.rows, cells }; commitStructural(before, after, 'Ubah ukuran canvas'); zoom = 1; stale = !!project.sourceImage && gridChanged; showCanvasSettings = false; flash(`Canvas diubah menjadi ${after.columns} × ${after.rows} sel.`); }
 
 	async function exportPdf() { if (pageCount > 100 && !confirm(`Blueprint ini akan menghasilkan ${pageCount} halaman. Lanjutkan?`)) return; exporting = 'PDF'; error = null; try { const { createProjectPdfInBackground } = await import('$lib/export/pdf-client'); const bytes = await createProjectPdfInBackground(project); downloadBlob(new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' }), `${safeFileName(project.name)}-blueprint.pdf`); flash('Blueprint PDF berhasil dibuat.'); } catch (caught) { error = caught instanceof Error ? caught.message : 'PDF tidak dapat dibuat.'; } finally { exporting = null; } }
-	async function exportPng(blueprint: boolean) { exporting = blueprint ? 'PNG blueprint' : 'PNG'; error = null; try { downloadBlob(await createProjectPng(project, blueprint), `${safeFileName(project.name)}${blueprint ? '-grid' : ''}.png`); flash('PNG berhasil dibuat.'); } catch (caught) { error = caught instanceof Error ? caught.message : 'PNG tidak dapat dibuat.'; } finally { exporting = null; } }
-	function exportMaterialsCsv() { downloadText(materialListCsv(project), `${safeFileName(project.name)}-materials.csv`, 'text/csv;charset=utf-8'); flash('CSV daftar material berhasil dibuat.'); }
-	function exportMatrixCsv() { downloadText(gridMatrixCsv(project), `${safeFileName(project.name)}-matrix.csv`, 'text/csv;charset=utf-8'); flash('CSV matriks warna berhasil dibuat.'); }
-	function exportProject() { downloadText(serializeProject(project), `${safeFileName(project.name)}.pixelgrid.json`, 'application/json'); flash('File proyek berhasil dibuat.'); }
-	async function runSelectedExport() {
-		if (exportFormat === 'pdf') await exportPdf();
-		else if (exportFormat === 'png') await exportPng(false);
-		else if (exportFormat === 'png-grid') await exportPng(true);
-		else if (exportFormat === 'materials-csv') exportMaterialsCsv();
-		else if (exportFormat === 'matrix-csv') exportMatrixCsv();
-		else exportProject();
-	}
+	async function exportPng(grid: boolean) { exporting = grid ? 'PNG grid' : 'PNG'; try { downloadBlob(await createProjectPng(project, grid), `${safeFileName(project.name)}${grid ? '-grid' : ''}.png`); flash('PNG berhasil dibuat.'); } catch (caught) { error = caught instanceof Error ? caught.message : 'PNG tidak dapat dibuat.'; } finally { exporting = null; } }
+	function runSelectedExport() { if (exportFormat === 'pdf') return exportPdf(); if (exportFormat === 'png') return exportPng(false); if (exportFormat === 'png-grid') return exportPng(true); if (exportFormat === 'materials-csv') { downloadText(materialListCsv(project), `${safeFileName(project.name)}-materials.csv`, 'text/csv;charset=utf-8'); flash('CSV material berhasil dibuat.'); } else if (exportFormat === 'matrix-csv') { downloadText(gridMatrixCsv(project), `${safeFileName(project.name)}-matrix.csv`, 'text/csv;charset=utf-8'); flash('CSV matriks berhasil dibuat.'); } else { downloadText(serializeProject(project), `${safeFileName(project.name)}.pixelgrid.json`, 'application/json'); flash('File proyek berhasil dibuat.'); } }
 	function rename(event: Event) { const value = (event.currentTarget as HTMLInputElement).value.trim(); if (value && value !== project.name) update({ ...project, name: value }); }
 </script>
 
-{#snippet paletteEditor(sectionLabel: string)}
-	<section class="palette-section">
-		<p class="section-number">{sectionLabel}</p>
-		<div class="palette-section-heading"><div><h2>{project.palette.length} warna aktif</h2><small>PALET PROYEK / SUGGESTION LOKAL</small></div><button type="button" onclick={openGlobalPaletteLibrary}>Library ↗</button></div>
-		<p class="helper">Suggestion tetap tersimpan di proyek. Edit HEX langsung mengubah canvas, atau gunakan library untuk mengganti seluruh palet.</p>
-		<div class="palette-library-actions"><button type="button" onclick={openGlobalPaletteLibrary}>Ganti dari global</button><button type="button" onclick={() => startPaletteDraft(`${project.name} palette`, project.palette.map((entry) => entry.hex))} disabled={project.palette.length === 0}>＋ Simpan ke global</button></div>
-		{#if project.palette.length === 0}<div class="palette-empty"><strong>Belum ada warna</strong><span>Tambah HEX untuk menggambar manual, atau impor gambar untuk suggestion otomatis.</span></div>{/if}
-		<div class="palette-list">{#each project.palette as entry}<div class:chosen={activeSlot === entry.slot} class="palette-row"><button class="color-choice" type="button" onclick={() => (activeSlot = entry.slot)}><span style={`--color:${entry.hex}`}></span><span><strong>{entry.slot + 1}. {entry.hex}</strong><small>{counts[entry.slot]?.toLocaleString('id-ID')} tile</small></span></button><input class="native-color" type="color" value={entry.hex} oninput={(event) => setPaletteHex(entry.id, event.currentTarget.value)} aria-label={`Pilih warna ${entry.hex}`} /><input class="hex-input" value={entry.hex} oninput={(event) => setPaletteHex(entry.id, event.currentTarget.value)} onblur={(event) => (event.currentTarget.value = entry.hex)} aria-label={`HEX warna ${entry.slot + 1}`} /><button class="delete-color" type="button" onclick={() => removeColor(entry.slot)} aria-label={`Hapus ${entry.hex}`}>×</button></div>{/each}</div>
-		<div class="add-color"><input bind:value={newHex} maxlength="7" aria-label="HEX warna baru" /><button type="button" onclick={addPaletteColor} disabled={project.palette.length >= 32}>＋ Tambah HEX</button></div>
-		{#if stale && project.sourceImage}<button class="recreate-inline" type="button" onclick={recreateSource} disabled={processing || project.palette.length === 0}>Recreate canvas dengan palet ini ↻</button>{/if}
-		<div class="palette-totals"><span><small>TERISI</small><strong>{filledCount.toLocaleString('id-ID')}</strong></span><span><small>KOSONG</small><strong>{emptyCount.toLocaleString('id-ID')}</strong></span></div>
-	</section>
-{/snippet}
-
-<div class="editor-shell">
+<div class:readonly={!editable} class="editor-shell">
 	<header class="editor-header">
-		<button class="back" type="button" onclick={onBack} aria-label="Kembali ke daftar proyek">←</button>
-		<div class="project-name"><small>PROYEK AKTIF</small><input value={project.name} onblur={rename} aria-label="Nama proyek" /></div>
-		<button class="project-metrics" type="button" onclick={openCanvasSize} aria-haspopup="dialog" title="Atur ukuran canvas dan grid"><span>{project.widthMm / 10} × {project.heightMm / 10} cm</span><i></i><span>{project.columns} × {project.rows} sel</span><b>Atur</b></button>
-		<div class:problem={saveState === 'error'} class="save-state"><span></span>{saveState === 'saving' ? 'Menyimpan…' : saveState === 'error' ? 'Gagal simpan' : 'Tersimpan lokal'}</div>
-		<div class="header-export">
-			<select bind:value={exportFormat} disabled={!!exporting} aria-label="Format export">
-				<option value="pdf">PDF blueprint</option><option value="png">PNG transparan</option><option value="png-grid">PNG + grid</option><option value="materials-csv">CSV material</option><option value="matrix-csv">CSV matriks</option><option value="project">File proyek</option>
-			</select>
-			<button type="button" onclick={runSelectedExport} disabled={!!exporting}>{exporting ? 'Menyiapkan…' : 'Export'} <span>↓</span></button>
-		</div>
-		<div class="history-buttons"><button type="button" onclick={undo} disabled={!canUndo} title="Undo">↶</button><button type="button" onclick={redo} disabled={!canRedo} title="Redo">↷</button></div>
+		<button class="icon-button back" type="button" onclick={onBack} aria-label="Kembali ke daftar proyek">←</button>
+		<a class="editor-brand" href="/" onclick={(event) => { event.preventDefault(); onBack(); }} aria-label="Kembali ke MIVUBI Mosaic Plan"><img src="/mivubi-logo.png" alt="" /><span>MIVUBI<small>EDITOR</small></span></a>
+		<input class="project-name" value={project.name} onblur={rename} aria-label="Nama proyek" disabled={!editable} />
+		<button class="metric-chip" type="button" onclick={openCanvasSize} aria-label="Atur ukuran canvas" disabled={!editable}>{project.widthMm / 10} × {project.heightMm / 10} cm&nbsp; · &nbsp;{project.columns} × {project.rows} sel</button>
+		<div class="header-spacer"></div>
+		{#if collaboration}<CollaborationBar participants={collaboration.participants} deviceId={collaboration.deviceId} ownerDeviceId={collaboration.ownerDeviceId} activeEditorDeviceId={collaboration.activeEditorDeviceId} connectionState={collaboration.state} requestingEdit={collaboration.requestingEdit} revision={collaboration.revision} onRequest={collaboration.onRequest} onCancelRequest={collaboration.onCancelRequest} onGrant={collaboration.onGrant} />{/if}
+		<div class="panel-picker"><button class="secondary compact" type="button" onclick={() => (showPanelMenu = !showPanelMenu)} aria-expanded={showPanelMenu}>▦ Panel⌄</button>{#if showPanelMenu}<div class="panel-menu">{#each [['left','Panel referensi'],['right','Panel palet'],['quick','Quick palette']] as item}<label><input type="checkbox" checked={panels[item[0] as keyof EditorPanelPreferences]} onchange={() => togglePanel(item[0] as keyof EditorPanelPreferences)} />{item[1]}</label>{/each}</div>{/if}</div>
+		<div class:problem={saveState === 'error'} class="save-state"><i></i><span>{saveState === 'saving' ? 'Menyimpan…' : saveState === 'error' ? 'Gagal simpan' : collaboration ? 'Tersimpan cloud' : 'Tersimpan lokal'}</span></div>
+		<button class="shortcut-button secondary compact" type="button" onclick={() => (showShortcuts = true)} title="Keyboard shortcuts (?)" aria-label="Buka keyboard shortcuts" aria-keyshortcuts="?">?</button>
+		<select class="export-select" bind:value={exportFormat} disabled={!!exporting} aria-label="Format ekspor"><option value="pdf">PDF blueprint</option><option value="png">PNG transparan</option><option value="png-grid">PNG + grid</option><option value="materials-csv">CSV material</option><option value="matrix-csv">CSV matriks</option><option value="project">File proyek</option></select>
+		<button class="primary export" type="button" onclick={runSelectedExport} disabled={!!exporting} title="Ekspor format terpilih (Ctrl/Cmd + E)" aria-keyshortcuts="Control+E Meta+E">{exporting ? 'Menyiapkan…' : 'Ekspor'} ↓</button>
 	</header>
 
-	{#if showCanvasSettings}
-		<div class="canvas-settings-layer">
-			<button class="canvas-settings-backdrop" type="button" onclick={() => (showCanvasSettings = false)} aria-label="Tutup pengaturan ukuran canvas"></button>
-			<div class="canvas-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="canvas-settings-title"><form onsubmit={applyCanvasSize}>
-				<div class="dialog-heading"><div><p class="section-number">PENGATURAN CANVAS</p><h2 id="canvas-settings-title">Ukuran dan grid</h2></div><button type="button" onclick={() => (showCanvasSettings = false)} aria-label="Tutup">×</button></div>
-				<p class="dialog-helper">Atur ukuran fisik dan ukuran tile. Grid dihitung otomatis, sementara isi canvas lama disesuaikan ke resolusi baru.</p>
-				<div class="size-field-grid"><label><span>Lebar canvas</span><div><input type="number" bind:value={canvasWidthCm} min="0.1" max="100000" step="0.1" /><b>cm</b></div></label><label><span>Tinggi canvas</span><div><input type="number" bind:value={canvasHeightCm} min="0.1" max="100000" step="0.1" /><b>cm</b></div></label></div>
-				<label class="size-field"><span>Ukuran tile persegi</span><div><input type="number" bind:value={canvasCellCm} min="0.1" max="100000" step="0.1" /><b>cm</b></div></label>
-				<div class:invalid={!canvasValidation.valid} class="size-result"><span><small>GRID BARU</small><strong>{canvasValidation.valid ? `${canvasValidation.columns} × ${canvasValidation.rows}` : 'Ukuran tidak pas'}</strong></span><span><small>TOTAL SEL</small><strong>{canvasValidation.valid ? canvasValidation.total.toLocaleString('id-ID') : '—'}</strong></span></div>
-				{#if !canvasValidation.valid}<p class="size-error">{canvasValidation.reason}{#if canvasValidation.suggestionsCm.length} Coba ukuran tile {canvasValidation.suggestionsCm.join(', ')} cm.{/if}</p>{/if}
-				{#if project.sourceImage}<p class="size-note">Jika jumlah atau rasio grid berubah, gunakan Recreate canvas agar gambar sumber dihitung ulang secara presisi.</p>{/if}
-				<div class="dialog-actions"><button class="cancel" type="button" onclick={() => (showCanvasSettings = false)}>Batal</button><button class="apply" type="submit" disabled={!canvasValidation.valid}>Terapkan ukuran</button></div>
-			</form></div>
-		</div>
-	{/if}
-
-	{#if showPaletteLibrary}
-		<div class="palette-library-layer">
-			<button class="palette-library-backdrop" type="button" onclick={() => (showPaletteLibrary = false)} aria-label="Tutup library palet"></button>
-			<div class="palette-library-dialog" role="dialog" aria-modal="true" aria-labelledby="palette-library-title">
-				<div class="dialog-heading"><div><p class="section-number">GLOBAL PALETTE LIBRARY</p><h2 id="palette-library-title">{paletteLibraryView === 'library' ? 'Pilih palet' : 'Buat palet sendiri'}</h2></div><button type="button" onclick={() => (showPaletteLibrary = false)} aria-label="Tutup">×</button></div>
-				{#if paletteLibraryView === 'library'}
-					<p class="dialog-helper">Palet aktif digunakan oleh canvas sekarang. Suggestion tersimpan di proyek, sedangkan palet global dapat digunakan ulang di semua proyek pada perangkat ini.</p>
-					<div class="global-palette-list">
-						<section class="palette-library-section active-palette-section" aria-label="Palet aktif">
-							<div class="library-section-title"><strong>Palet aktif</strong><span class="active-status">✓ DIGUNAKAN DI CANVAS</span></div>
-							<article class="global-palette-card project-palette-card"><div class="global-palette-copy"><span><strong>Palet proyek saat ini</strong><small>AKTIF · {project.palette.length} WARNA</small></span><div class="global-swatches">{#each project.palette as color}<i style={`--color:${color.hex}`} title={color.hex}></i>{/each}</div></div><button class="card-secondary" type="button" onclick={() => startPaletteDraft(`${project.name} palette`, project.palette.map((entry) => entry.hex))} disabled={project.palette.length === 0}>Simpan ke global</button></article>
-						</section>
-
-						{#if project.suggestedPalette?.length}
-							<section class="palette-library-section" aria-label="Suggestion proyek">
-								<div class="library-section-title"><strong>Suggestion proyek</strong><small>TERSIMPAN LOKAL</small></div>
-								<article class:palette-card-active={paletteIsActive(project.suggestedPalette.map((entry) => entry.hex))} class="global-palette-card suggestion-card"><div class="global-palette-copy"><span><strong>Suggestion terakhir</strong><small>{project.suggestedPalette.length} WARNA</small></span><div class="global-swatches">{#each project.suggestedPalette as color}<i style={`--color:${color.hex}`} title={color.hex}></i>{/each}</div></div><div class="card-actions"><button class="card-secondary" type="button" onclick={() => startPaletteDraft(`${project.name} suggestion`, project.suggestedPalette!.map((entry) => entry.hex))}>Tambah ke global</button>{#if paletteIsActive(project.suggestedPalette.map((entry) => entry.hex))}<span class="in-use-label">✓ Sedang digunakan</span>{:else}<button class="card-apply" type="button" onclick={() => applyPalette('Suggestion terakhir', project.suggestedPalette!.map((entry) => entry.hex))}>Gunakan</button>{/if}</div></article>
-							</section>
-						{/if}
-
-						<section class="palette-library-section global-library-section" aria-label="Library palet global">
-							<div class="library-section-title"><strong>Library global</strong><small>BISA DIPAKAI DI SEMUA PROYEK</small></div>
-							{#each globalPalettes as palette}
-								{@const paletteHexes = palette.colors.map((color) => color.hex)}
-								<article class:palette-card-active={paletteIsActive(paletteHexes)} class="global-palette-card"><div class="global-palette-copy"><span><strong>{palette.name}</strong><small>{palette.builtIn ? 'DEFAULT GLOBAL' : 'PALET USER'} · {palette.colors.length} WARNA</small></span><div class="global-swatches detailed">{#each palette.colors as color}<i style={`--color:${color.hex}`} title={[color.name, color.hex, color.usage].filter(Boolean).join(' · ')}></i>{/each}</div>{#if palette.builtIn}<p>Outline gelap, struktur netral, cyan, hijau, cokelat, dan aksen hangat.</p>{/if}</div><div class="card-actions">{#if !palette.builtIn}<button class="card-delete" type="button" onclick={() => deleteUserPalette(palette)}>Hapus</button>{/if}{#if paletteIsActive(paletteHexes)}<span class="in-use-label">✓ Sedang digunakan</span>{:else}<button class="card-apply" type="button" onclick={() => applyPalette(palette.name, paletteHexes)}>Gunakan</button>{/if}</div></article>
-							{/each}
-						</section>
-					</div>
-					<button class="create-global-palette" type="button" onclick={() => startPaletteDraft('Palet baru', ['#000000'])}>＋ Buat palet sendiri</button>
-				{:else}
-					<form class="palette-draft-form" onsubmit={savePaletteDraft}>
-						<label class="draft-name"><span>Nama palet</span><input bind:value={paletteDraftName} maxlength="80" /></label>
-						<div class="draft-colors">{#each paletteDraftHexes as hex, index}<div class="draft-color-row"><input type="color" value={normalizeHex(hex) ?? '#000000'} oninput={(event) => setPaletteDraftHex(index, event.currentTarget.value.toUpperCase())} aria-label={`Pilih warna ${index + 1}`} /><input value={hex} maxlength="7" oninput={(event) => setPaletteDraftHex(index, event.currentTarget.value)} onblur={(event) => { const normalized = normalizeHex(event.currentTarget.value); if (normalized) setPaletteDraftHex(index, normalized); }} aria-label={`HEX warna ${index + 1}`} /><button type="button" onclick={() => removePaletteDraftHex(index)} disabled={paletteDraftHexes.length <= 1} aria-label={`Hapus warna ${index + 1}`}>×</button></div>{/each}</div>
-						<button class="add-draft-color" type="button" onclick={() => (paletteDraftHexes = [...paletteDraftHexes, '#000000'])} disabled={paletteDraftHexes.length >= 32}>＋ Tambah warna</button>
-						{#if !paletteDraftValid}<p class="draft-error">Isi nama, gunakan 1–32 HEX valid, dan hindari warna duplikat.</p>{/if}
-						<div class="dialog-actions"><button class="cancel" type="button" onclick={() => (paletteLibraryView = 'library')}>Kembali</button><button class="apply" type="submit" disabled={!paletteDraftValid || savingGlobalPalette}>{savingGlobalPalette ? 'Menyimpan…' : 'Simpan ke global'}</button></div>
-					</form>
-				{/if}
-			</div>
-		</div>
-	{/if}
-
-	<div class="editor-body">
-		<aside class="left-panel">
-			<div class="panel-tabs"><button class:active={panel === 'import'} onclick={() => (panel = 'import')} type="button">Import</button><button class:active={panel === 'palette'} onclick={() => (panel = 'palette')} type="button">Palette</button></div>
-			<div class:mobile-hidden={panel !== 'import'} class="import-panel">
-				<section><p class="section-number">01 / SUMBER</p><h2>Recreate gambar</h2>
-					<label class="upload-zone">{#if project.sourceImage}<img src={project.sourceImage.dataUrl} alt="Gambar sumber" /><span>Ganti gambar</span>{:else}<b>＋</b><strong>Pilih gambar</strong><small>PNG, JPEG, WebP · maks. 20 MB</small>{/if}<input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onchange={importImage} disabled={processing} /></label>
+		<div class:no-left={!panels.left} class:no-right={!panels.right} class="editor-body">
+			{#if !editable}<div class="viewer-banner">Mode viewer · hanya editor aktif yang dapat mengubah proyek</div>{/if}
+		{#if panels.left}<aside class="side-panel left-panel"><div class="panel-title"><strong>Referensi gambar</strong><button type="button" onclick={() => togglePanel('left')} aria-label="Tutup panel referensi">‹</button></div><div class="tabs three"><button class:active={leftTab === 'reference'} onclick={() => (leftTab = 'reference')}>Referensi</button><button class:active={leftTab === 'reconstruction'} onclick={() => (leftTab = 'reconstruction')}>Rekonstruksi</button><button class:active={leftTab === 'properties'} onclick={() => (leftTab = 'properties')}>Properti</button></div>
+			<div class="panel-scroll">
+				{#if leftTab === 'reference'}<section class="panel-section">
+					<label class:disabled={processing} class="source-preview source-upload upload">
+						{#if project.sourceImage}<img src={project.sourceImage.dataUrl} alt="Gambar sumber. Klik untuk mengganti gambar." />{:else}<div class="source-empty">Klik untuk memilih gambar sumber</div>{/if}
+						<span class="source-upload-hint">▧ {processing ? 'Memproses gambar…' : project.sourceImage ? 'Klik untuk ganti gambar' : 'Pilih gambar'}</span>
+						<input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onchange={importImage} disabled={processing || !editable} />
+					</label>
 					{#if project.sourceImage}
-						<div class="segmented"><button class:active={project.importSettings.placement === 'crop'} type="button" onclick={() => updateSettings({ placement: 'crop' })}>Crop to fill</button><button class:active={project.importSettings.placement === 'fit'} type="button" onclick={() => updateSettings({ placement: 'fit' })}>Fit utuh</button></div>
-						{#if project.importSettings.placement === 'crop'}<VisualCropper source={project.sourceImage} crop={project.importSettings.crop} targetAspect={project.columns / project.rows} onChange={(crop) => updateSettings({ crop })} />{:else}<div class="fit-preview"><img src={project.sourceImage.dataUrl} alt="Preview seluruh gambar" /></div>{/if}
-						<label class="control-label"><span>Mode rekonstruksi</span><select value={project.importSettings.renderMode} onchange={(event) => updateSettings({ renderMode: event.currentTarget.value as 'contour' | 'photo' })}><option value="contour">Contour — shape tegas</option><option value="photo">Photo — gradasi halus</option></select></label>
-						<label class="control-label"><span>Jumlah suggestion</span><input type="number" min="2" max="32" value={project.importSettings.suggestionCount} onchange={(event) => updateSettings({ suggestionCount: Math.max(2, Math.min(32, Number(event.currentTarget.value) || 8)) }, false)} /></label>
-						{#if stale}<p class="stale">Pengaturan atau struktur palet berubah. Recreate canvas untuk menerapkannya ke gambar.</p>{/if}
-						<div class="conversion-actions"><button class="secondary" type="button" onclick={refreshSuggestion} disabled={processing}>Buat ulang suggestion</button><button class="primary" type="button" onclick={recreateSource} disabled={processing || project.palette.length === 0}>{processing ? 'Memproses…' : 'Recreate canvas ↻'}</button></div>
+						<div class="segmented fit"><button class:active={project.importSettings.placement === 'crop'} onclick={() => updateSettings({ placement: 'crop' })}>Isi bingkai</button><button class:active={project.importSettings.placement === 'fit'} onclick={() => updateSettings({ placement: 'fit' })}>Tampilkan utuh</button></div>
+						{#if project.importSettings.placement === 'crop'}<VisualCropper source={project.sourceImage} crop={project.importSettings.crop} targetAspect={project.columns / project.rows} onChange={(crop) => updateSettings({ crop })} />{/if}
+						{#if stale}<div class="reconstruction-update"><span><strong>Preview berubah</strong><small>Grid masih memakai hasil sebelumnya.</small></span><button class="primary" onclick={updateReconstruction} disabled={processing}>{processing ? 'Memperbarui…' : project.palette.length ? 'Perbarui rekonstruksi' : 'Atur rekonstruksi'}</button></div>{/if}
+						<div class="summary-card"><strong>Rekonstruksi <small>(ringkas)</small></strong><span>Gaya: {project.importSettings.renderMode === 'contour' ? 'Contour · shape tegas' : 'Photo · gradasi halus'}</span><span>Jumlah warna: {project.importSettings.suggestionCount}</span><button class="secondary" onclick={() => (leftTab = 'reconstruction')}>Buka rekonstruksi</button></div>
 					{/if}
-					{#if processing}<div class="progress"><i></i><span>Menganalisis warna dan shape…</span></div>{/if}
 				</section>
-			</div>
-			<div class="mobile-palette">{#if panel === 'palette'}{@render paletteEditor('02 / PALETTE HEX')}{/if}</div>
-		</aside>
+				{:else if leftTab === 'reconstruction'}<section class="panel-section"><h2>Rekonstruksi</h2><p class="helper">Suggestion tidak mengubah grid. Saat suggestion digunakan, warna grid langsung disesuaikan; raster ulang hanya diperlukan setelah sumber gambar, crop, atau gaya hasil berubah.</p><label class="field"><span>Gaya hasil</span><select value={project.importSettings.renderMode} onchange={(event) => updateSettings({ renderMode: event.currentTarget.value as 'contour' | 'photo' })}><option value="contour">Contour · shape tegas</option><option value="photo">Photo · gradasi halus</option></select></label><label class="field"><span>Jumlah warna</span><input type="number" min="2" max="32" value={project.importSettings.suggestionCount} onchange={(event) => updateSettings({ suggestionCount: Math.max(2, Math.min(32, Number(event.currentTarget.value) || 8)) }, false)} /></label>{#if stale}<p class="stale">Sumber gambar, crop, ukuran, atau gaya hasil berubah. Raster ulang untuk memperbarui bentuk grid.</p>{/if}<button class="secondary wide" onclick={refreshSuggestion} disabled={processing || !project.sourceImage}>{processing ? 'Menganalisis…' : 'Buat suggestion'}</button>{#if project.suggestedPalette?.length && !paletteIsActive(project.suggestedPalette)}<button class="secondary wide" onclick={adoptSuggestion} disabled={paletteLocked}>Gunakan suggestion</button>{/if}<button class="primary wide" onclick={applyGrid} disabled={processing || !project.sourceImage || !project.palette.length}>Raster ulang dari gambar</button>{#if project.suggestedPalette?.length}<div class="suggestion-strip">{#each project.suggestedPalette as color}<i style={`--color:${color.hex}`} title={color.hex}></i>{/each}</div>{/if}</section>
+				{:else}<section class="panel-section"><h2>Properti canvas</h2><div class="property-grid"><span><small>Ukuran fisik</small><strong>{project.widthMm / 10} × {project.heightMm / 10} cm</strong></span><span><small>Grid</small><strong>{project.columns} × {project.rows}</strong></span><span><small>Tile</small><strong>{project.cellMm / 10} cm</strong></span><span><small>Total</small><strong>{project.cells.length.toLocaleString('id-ID')}</strong></span><span><small>Terisi</small><strong>{filledCount.toLocaleString('id-ID')}</strong></span><span><small>Kosong</small><strong>{emptyCount.toLocaleString('id-ID')}</strong></span></div><button class="primary wide" onclick={openCanvasSize}>Atur ukuran canvas</button></section>{/if}
+			</div></aside>{/if}
 
-		<section class="canvas-column">
-			<div class="canvas-toolbar"><div class="tool-group" role="toolbar" aria-label="Alat gambar"><button class:active={tool === 'pencil'} onclick={() => (tool = 'pencil')} type="button" disabled={activeSlot < 0}><b>✎</b><span>Pencil</span></button><button class:active={tool === 'fill'} onclick={() => (tool = 'fill')} type="button" disabled={activeSlot < 0}><b>▰</b><span>Fill</span></button><button class:active={tool === 'picker'} onclick={() => (tool = 'picker')} type="button"><b>⌾</b><span>Picker</span></button><button class:active={tool === 'eraser'} onclick={() => (tool = 'eraser')} type="button"><b>◇</b><span>Eraser</span></button><button class:active={tool === 'pan'} onclick={() => (tool = 'pan')} type="button"><b>✥</b><span>Pan</span></button></div><div class="view-controls"><label><input type="checkbox" bind:checked={showGrid} /> Grid</label><button type="button" onclick={() => (zoom = Math.max(.35, zoom / 1.2))}>−</button><span>{Math.round(zoom * 100)}%</span><button type="button" onclick={() => (zoom = Math.min(6, zoom * 1.2))}>＋</button><button type="button" onclick={() => (zoom = 1)}>Fit</button></div></div>
-			<div class="canvas-wrap"><MosaicCanvas {project} {activeSlot} {tool} {zoom} {showGrid} onPaint={paint} onFill={fill} onEditCell={(index, slot) => applyCellPatch(Uint32Array.of(index), slot, 'Edit keyboard')} onPick={(slot) => { if (slot === EMPTY_CELL) tool = 'eraser'; else { activeSlot = slot; tool = 'pencil'; } }} onZoom={(value) => (zoom = value)} /></div>
-			<div class="palette-strip"><div class="palette-meta"><small>WARNA AKTIF</small><strong>{activeSlot >= 0 ? project.palette[activeSlot]?.hex : 'Belum dipilih'}</strong></div><div class="strip-scroll">{#each project.palette as entry}<button class:active={entry.slot === activeSlot} onclick={() => (activeSlot = entry.slot)} type="button"><i style={`--color:${entry.hex}`}></i><span>{entry.slot + 1}</span><small>{counts[entry.slot]?.toLocaleString('id-ID')}</small></button>{/each}</div>{#if project.palette.length === 0}<button class="open-palette" type="button" onclick={() => (panel = 'palette')}>＋ Tambah warna HEX</button>{/if}</div>
+		<section class="canvas-workspace">
+			<div class="context-bar">
+				<span class="active-swatch" style={`--color:${selectedEntry?.hex ?? '#FFFFFF'}`}></span>
+				{#if tool === 'select' && selection}
+					<strong class="selection-label">{selectionIndices.length.toLocaleString('id-ID')} sel dipilih</strong>
+					<button class="context-action" onclick={() => fillSelection(activeSlot)} disabled={activeSlot < 0}>Isi warna</button>
+					<button class="context-action" onclick={() => fillSelection(EMPTY_CELL)}>Kosongkan</button>
+					<button onclick={() => (selection = null)} aria-label="Batalkan pilihan">×</button>
+				{:else}
+					<strong class="tool-label">{tool === 'picker' ? 'Klik sel untuk mengambil warna' : tool === 'pan' ? 'Drag kanvas untuk menggeser' : tool === 'select' ? 'Drag untuk memilih sel' : 'Warna aktif'}</strong>
+				{/if}
+				<span class="divider"></span><button onclick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl/Cmd + Z)" aria-keyshortcuts="Control+Z Meta+Z">↶</button><button onclick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl/Cmd + Shift + Z)" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z">↷</button>
+			</div>
+			<div class="canvas-main"><div class="tool-rail" role="toolbar" aria-label="Alat gambar">
+				<button class:active={tool === 'picker'} onclick={() => chooseTool('picker')} title="Ambil warna dari sel (I)" aria-keyshortcuts="I"><b>⌖</b><span>Pipet</span></button>
+					<button class:active={tool === 'pencil'} onclick={() => chooseTool('pencil')} disabled={activeSlot < 0 || !editable} title="Pensil (P)" aria-keyshortcuts="P"><b>✎</b><span>Pensil</span></button>
+					<button class:active={tool === 'fill'} onclick={() => chooseTool('fill')} disabled={activeSlot < 0 || !editable} title="Isi area (F)" aria-keyshortcuts="F"><b>◩</b><span>Isi</span></button>
+					<button class:active={tool === 'eraser'} onclick={() => chooseTool('eraser')} disabled={!editable} title="Hapus (E)" aria-keyshortcuts="E"><b>◇</b><span>Hapus</span></button>
+					<button class:active={tool === 'select'} onclick={() => chooseTool('select')} title="Pilih satu atau beberapa sel (S)" aria-keyshortcuts="S"><b>⬚</b><span>Select</span></button>
+				<button class:active={tool === 'pan'} onclick={() => chooseTool('pan')} title="Geser posisi kanvas (tahan Space)"><b>✣</b><span>Geser</span></button>
+				</div><div class="canvas-wrap"><MosaicCanvas {project} {activeSlot} {tool} {zoom} {showGrid} {selection} {fitRequest} {editable} onSelectionChange={(value) => (selection = value)} onPaint={paint} onFill={fill} onEditCell={(index, slot) => applyCellPatch(Uint32Array.of(index), slot, 'Edit keyboard')} onPick={(slot) => { if (slot === EMPTY_CELL) tool = 'eraser'; else { activeSlot = slot; tool = 'pencil'; rightTab = 'detail'; } }} onZoom={(value) => (zoom = value)} onCoordinate={(value) => (coordinate = value)} /></div></div>
+			<div class="view-controls"><label title="Tampilkan atau sembunyikan grid (G)"><input type="checkbox" bind:checked={showGrid} /> Grid</label><button onclick={() => (zoom = Math.max(.35, zoom / 1.2))} title="Perkecil (-)" aria-keyshortcuts="-">−</button><span>{Math.round(zoom * 100)}%</span><button onclick={() => (zoom = Math.min(6, zoom * 1.2))} title="Perbesar (+)" aria-keyshortcuts="+">＋</button><button onclick={fitCanvas} title="Fit canvas (0)" aria-keyshortcuts="0">Fit</button><b>{coordinate ? `X ${coordinate.x} · Y ${coordinate.y}` : 'X — · Y —'}</b></div>
+			{#if panels.quick}<div class="quick-palette"><span><small>Aktif</small><i style={`--color:${selectedEntry?.hex ?? '#FFFFFF'}`}></i></span>{#each project.palette as entry}<button class:active={entry.slot === activeSlot} onclick={() => { activeSlot = entry.slot; rightTab = 'detail'; }} title={`${[entry.name, entry.hex].filter(Boolean).join(' · ')}${entry.slot < 9 ? ` · Shortcut ${entry.slot + 1}` : ''}`} aria-keyshortcuts={entry.slot < 9 ? String(entry.slot + 1) : undefined}><small>{entry.slot + 1}</small><i style={`--color:${entry.hex}`}></i></button>{/each}{#if !project.palette.length}<button class="empty-palette" onclick={() => { if (!panels.right) persistPanels({ ...panels, right: true }); rightTab = 'palette'; }}>+ Tambah warna</button>{/if}<button class="quick-close" onclick={() => togglePanel('quick')} aria-label="Tutup quick palette">×</button></div>{/if}
 		</section>
 
-		<aside class="right-panel">{@render paletteEditor('03 / PALETTE')}</aside>
+		{#if panels.right}<aside class="side-panel right-panel"><div class="panel-title"><strong>Palet · {project.palette.length} warna</strong><button type="button" onclick={() => togglePanel('right')} aria-label="Tutup panel palet">›</button></div><div class="tabs"><button class:active={rightTab === 'palette'} onclick={() => (rightTab = 'palette')}>Palet</button><button class:active={rightTab === 'detail'} onclick={() => (rightTab = 'detail')}>Detail</button></div><div class="panel-scroll">
+			{#if rightTab === 'palette'}<section class="panel-section"><div class="palette-overview">{#each project.palette as entry}<button class:active={entry.slot === activeSlot} onclick={() => { activeSlot = entry.slot; rightTab = 'detail'; }}><i style={`--color:${entry.hex}`}></i><span>{entry.slot + 1}</span><small>{entry.name || entry.hex}</small>{#if entry.locked}<b>⌑</b>{/if}</button>{/each}</div>{#if !project.palette.length}<div class="panel-empty">Belum ada warna. Tambah HEX atau ambil suggestion dari gambar.</div>{/if}<div class="add-color"><input bind:value={newHex} maxlength="7" aria-label="HEX warna baru" /><button class="primary" onclick={addPaletteColor} disabled={project.palette.length >= 32}>+ Tambah warna</button></div><button class="secondary wide" onclick={openGlobalPaletteLibrary}>Buka library palet</button></section>
+			{:else}<section class="panel-section">{#if selectedEntry}<div class="color-detail"><div class="detail-swatch" style={`--color:${selectedEntry.hex}`}></div><div><small>WARNA {selectedEntry.slot + 1}</small><strong>{selectedEntry.name || selectedEntry.hex}</strong><span>{counts[selectedEntry.slot]?.toLocaleString('id-ID')} tile</span></div><button class:locked={selectedEntry.locked} onclick={() => toggleLock(selectedEntry)} aria-label={selectedEntry.locked ? 'Buka kunci warna' : 'Kunci warna'}>{selectedEntry.locked ? '🔒' : '⌑'}</button></div><label class="field"><span>HEX</span><input value={selectedEntry.hex} disabled={selectedEntry.locked} onblur={(event) => { setPaletteHex(selectedEntry, event.currentTarget.value); event.currentTarget.value = selectedEntry.hex; }} /></label><label class="field"><span>Nama opsional</span><input value={selectedEntry.name ?? ''} placeholder="Tanpa nama" maxlength="80" disabled={selectedEntry.locked} onblur={(event) => setPaletteName(selectedEntry, event.currentTarget.value)} /></label><div class="detail-actions"><input type="color" value={selectedEntry.hex} disabled={selectedEntry.locked} oninput={(event) => setPaletteHex(selectedEntry, event.currentTarget.value)} aria-label="Pilih warna" /><button class="secondary" onclick={() => (showColorMenu = !showColorMenu)} aria-expanded={showColorMenu}>•••</button>{#if showColorMenu}<div class="color-menu"><button onclick={() => startPaletteDraft(`${project.name} palette`, project.palette.map((entry) => ({ hex: entry.hex, name: entry.name })))}>Simpan sebagai palet</button><button class="danger" onclick={() => removeColor(selectedEntry)} disabled={selectedEntry.locked}>Hapus warna</button></div>{/if}</div>{#if selectedEntry.locked}<p class="lock-note">Warna terkunci tetap bisa dipakai melukis, tetapi tidak dapat diedit atau dihapus.</p>{/if}{:else}<div class="panel-empty">Pilih warna untuk melihat detail.</div>{/if}</section>{/if}
+		</div></aside>{/if}
 	</div>
-	{#if notice}<div class="toast success" role="status">✓ {notice}</div>{/if}{#if error}<div class="toast error" role="alert"><span>! {error}</span><button type="button" onclick={() => (error = null)}>×</button></div>{/if}
+
+	{#if showShortcuts}<div class="modal-layer"><button class="modal-backdrop" onclick={() => (showShortcuts = false)} aria-label="Tutup keyboard shortcuts"></button><div class="modal-card shortcut-modal" role="dialog" aria-modal="true" aria-labelledby="shortcut-title"><div class="modal-heading"><div><small>EDITOR</small><h2 id="shortcut-title">Keyboard shortcuts</h2></div><button type="button" onclick={() => (showShortcuts = false)} aria-label="Tutup">×</button></div><p>Shortcut dinonaktifkan ketika kamu sedang mengetik pada input atau form.</p><div class="shortcut-grid"><section><h3>Alat</h3><div><kbd>P</kbd><span>Pensil</span></div><div><kbd>F</kbd><span>Isi area</span></div><div><kbd>E</kbd><span>Hapus</span></div><div><kbd>I</kbd><span>Pipet</span></div><div><kbd>S</kbd><span>Select</span></div><div><kbd>Space</kbd><span>Tahan untuk geser</span></div></section><section><h3>Proyek</h3><div><kbd>⌘/Ctrl Z</kbd><span>Undo</span></div><div><kbd>⌘/Ctrl ⇧ Z</kbd><span>Redo</span></div><div><kbd>⌘/Ctrl S</kbd><span>Simpan sekarang</span></div><div><kbd>⌘/Ctrl E</kbd><span>Ekspor format terpilih</span></div><div><kbd>Esc</kbd><span>Tutup atau batalkan</span></div></section><section><h3>Tampilan & warna</h3><div><kbd>1–9</kbd><span>Pilih warna palet</span></div><div><kbd>G</kbd><span>Tampilkan/sembunyikan grid</span></div><div><kbd>+</kbd><span>Perbesar</span></div><div><kbd>−</kbd><span>Perkecil</span></div><div><kbd>0</kbd><span>Fit canvas</span></div><div><kbd>?</kbd><span>Buka bantuan ini</span></div></section></div></div></div>{/if}
+
+	{#if showCanvasSettings}<div class="modal-layer"><button class="modal-backdrop" onclick={() => (showCanvasSettings = false)} aria-label="Tutup"></button><form class="modal-card small" onsubmit={applyCanvasSize}><div class="modal-heading"><div><small>PROPERTI CANVAS</small><h2>Ukuran dan grid</h2></div><button type="button" onclick={() => (showCanvasSettings = false)}>×</button></div><p>Grid dihitung otomatis. Isi canvas lama disesuaikan jika resolusi berubah.</p><div class="field-grid"><label class="field"><span>Lebar</span><input type="number" bind:value={canvasWidthCm} step=".1" /><b>cm</b></label><label class="field"><span>Tinggi</span><input type="number" bind:value={canvasHeightCm} step=".1" /><b>cm</b></label></div><label class="field"><span>Ukuran tile</span><input type="number" bind:value={canvasCellCm} step=".1" /><b>cm</b></label><div class="size-result"><span><small>GRID BARU</small><strong>{canvasValidation.valid ? `${canvasValidation.columns} × ${canvasValidation.rows}` : 'Tidak valid'}</strong></span><span><small>TOTAL SEL</small><strong>{canvasValidation.valid ? canvasValidation.total.toLocaleString('id-ID') : '—'}</strong></span></div>{#if !canvasValidation.valid}<p class="error-text">{canvasValidation.reason}</p>{/if}<div class="modal-actions"><button class="secondary" type="button" onclick={() => (showCanvasSettings = false)}>Batal</button><button class="primary" type="submit" disabled={!canvasValidation.valid}>Terapkan ukuran</button></div></form></div>{/if}
+
+	{#if showPaletteLibrary}<div class="modal-layer"><button class="modal-backdrop" onclick={() => (showPaletteLibrary = false)} aria-label="Tutup"></button><div class="modal-card palette-modal"><div class="modal-heading"><div><small>GLOBAL PALETTE LIBRARY</small><h2>{paletteLibraryView === 'library' ? 'Pilih palet' : 'Simpan palet'}</h2></div><button onclick={() => (showPaletteLibrary = false)}>×</button></div>{#if paletteLibraryView === 'library'}<p>Bagian teratas adalah palet yang sedang dipakai proyek. Memilih kandidat lain langsung menyesuaikan warna grid tanpa raster ulang.</p><div class="library-list">{#if project.palette.length}<article class="active current-palette"><div><strong>Palet proyek saat ini</strong><small>AKTIF · {project.palette.length} warna</small><div class="swatches">{#each project.palette as color}<i style={`--color:${color.hex}`} title={[color.name,color.hex].filter(Boolean).join(' · ')}></i>{/each}</div></div><div class="library-actions"><span class="in-use">✓ Sedang digunakan</span></div></article>{/if}{#if project.suggestedPalette?.length}<article class:matches-active={paletteIsActive(project.suggestedPalette)}><div><strong>Suggestion proyek</strong><small>SUGGESTION PROYEK · {project.suggestedPalette.length} warna</small><div class="swatches">{#each project.suggestedPalette as color}<i style={`--color:${color.hex}`}></i>{/each}</div></div><div class="library-actions">{#if paletteIsActive(project.suggestedPalette)}<span class="palette-match">✓ Sama dengan palet aktif</span>{:else}<button class="primary" onclick={adoptSuggestion} disabled={paletteLocked}>Gunakan palet</button>{/if}</div></article>{/if}{#each globalPalettes as palette}<article class:matches-active={paletteIsActive(palette.colors)}><div><strong>{palette.name}</strong><small>{palette.builtIn ? 'DEFAULT GLOBAL' : 'PALET USER'} · {palette.colors.length} warna</small><div class="swatches">{#each palette.colors as color}<i style={`--color:${color.hex}`} title={[color.name,color.hex].filter(Boolean).join(' · ')}></i>{/each}</div></div><div class="library-actions">{#if !palette.builtIn}<button class="danger-link" onclick={() => deleteUserPalette(palette)}>Hapus</button>{/if}{#if paletteIsActive(palette.colors)}<span class="palette-match">✓ Sama dengan palet aktif</span>{:else}<button class="primary" onclick={() => applyPalette(palette.name, palette.colors)} disabled={paletteLocked}>Gunakan palet</button>{/if}</div></article>{/each}</div><button class="secondary wide" onclick={() => startPaletteDraft('Palet baru', [{ hex: '#000000' }])}>+ Buat palet sendiri</button>{:else}<form onsubmit={savePaletteDraft}><label class="field"><span>Nama palet</span><input bind:value={paletteDraftName} maxlength="80" /></label><div class="draft-colors">{#each paletteDraftColors as color, index}<div><input type="color" value={normalizeHex(color.hex) ?? '#000000'} oninput={(event) => (paletteDraftColors[index].hex = event.currentTarget.value.toUpperCase())} /><input bind:value={color.hex} maxlength="7" /><input bind:value={color.name} placeholder="Nama opsional" /><button type="button" onclick={() => (paletteDraftColors = paletteDraftColors.filter((_, candidate) => candidate !== index))} disabled={paletteDraftColors.length <= 1}>×</button></div>{/each}</div><button class="secondary wide" type="button" onclick={() => (paletteDraftColors = [...paletteDraftColors, { hex: '#000000' }])} disabled={paletteDraftColors.length >= 32}>+ Tambah warna</button><div class="modal-actions"><button class="secondary" type="button" onclick={() => (paletteLibraryView = 'library')}>Kembali</button><button class="primary" type="submit" disabled={!paletteDraftValid || savingGlobalPalette}>{savingGlobalPalette ? 'Menyimpan…' : 'Simpan palet'}</button></div></form>{/if}</div></div>{/if}
+
+	{#if notice}<div class="toast success" role="status">✓ {notice}</div>{/if}{#if error}<div class="toast error" role="alert"><span>! {error}</span><button onclick={() => (error = null)}>×</button></div>{/if}
 </div>
 
 <style>
-	.editor-shell{height:100vh;min-height:680px;display:flex;flex-direction:column;background:#e2e0da;color:#202622;overflow:hidden}.editor-header{height:66px;display:flex;align-items:center;gap:16px;padding:0 18px;border-bottom:1px solid #c8c6bf;background:#faf9f5}.back{width:36px;height:36px;border:1px solid #d2d0c9;border-radius:6px;background:white;font-size:18px}.project-name{display:flex;flex-direction:column;border-right:1px solid #d5d2cb;padding-right:20px;min-width:220px}.project-name small,.section-number{font-size:8px;letter-spacing:.16em;font-weight:850;color:#8a8e89}.project-name input{border:0;background:transparent;height:23px;font-size:14px;font-weight:800}.project-metrics{display:flex;align-items:center;gap:11px;color:#646b66;font-size:11px;margin-right:auto}.project-metrics i{width:3px;height:3px;background:#abaea9;border-radius:50%}.save-state{font-size:10px;color:#6b736d;display:flex;align-items:center;gap:7px}.save-state>span{width:7px;height:7px;border-radius:50%;background:#66a56d}.save-state.problem>span{background:#d05b38}.header-export{height:36px;display:flex;align-items:stretch;border:1px solid #c9c7c0;border-radius:6px;background:white;overflow:hidden}.header-export select{min-width:148px;border:0;border-right:1px solid #d6d3cb;background:white;padding:0 28px 0 10px;font-size:9px;font-weight:750;color:#353b37}.header-export button{min-width:88px;border:0;background:var(--accent);color:white;padding:0 11px;font-size:9px;font-weight:850}.header-export button span{margin-left:8px;font-size:13px}.header-export select:disabled,.header-export button:disabled{opacity:.65}.history-buttons{display:flex}.history-buttons button{width:35px;height:34px;border:1px solid #d0cec7;background:white;font-size:17px}.history-buttons button:disabled{opacity:.35}.editor-body{display:grid;grid-template-columns:300px minmax(420px,1fr) 300px;min-height:0;flex:1}.left-panel,.right-panel{background:#f9f8f4;overflow-y:auto}.left-panel{border-right:1px solid #c9c7c0}.right-panel{border-left:1px solid #c9c7c0}.panel-tabs{display:none;grid-template-columns:1fr 1fr;height:48px;border-bottom:1px solid #d6d3cb}.panel-tabs button{border:0;background:transparent;font-size:10px;font-weight:800;text-transform:uppercase;position:relative}.panel-tabs button.active:after{content:"";height:2px;position:absolute;bottom:0;left:20px;right:20px;background:var(--accent)}.left-panel section,.palette-section{padding:23px 20px 35px}.mobile-palette{display:none}.left-panel h2,.right-panel h2{font-size:20px;letter-spacing:-.04em;margin:5px 0 17px}.upload-zone{height:140px;border:1px dashed #b8bbb5;background:#eeece6;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:14px;overflow:hidden;position:relative;cursor:pointer}.upload-zone img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.upload-zone>span{position:absolute;bottom:9px;background:rgba(31,37,34,.82);color:white;padding:6px 9px;border-radius:5px;font-size:9px;font-weight:750}.upload-zone b{font-size:26px;color:var(--accent)}.upload-zone strong{font-size:12px}.upload-zone small{font-size:9px;color:#858b86}.segmented{display:grid;grid-template-columns:1fr 1fr;margin-bottom:10px}.segmented button{height:34px;border:1px solid #c9c7c0;background:white;font-size:9px;font-weight:800}.segmented button.active{background:var(--forest);border-color:var(--forest);color:white}.fit-preview{height:160px;display:grid;place-items:center;background:repeating-conic-gradient(#ddd 0 25%,#f4f2ed 0 50%) 50%/12px 12px;border:1px solid #c7c5be;border-radius:7px;margin-bottom:14px;overflow:hidden}.fit-preview img{width:100%;height:100%;object-fit:contain}.control-label{display:block;margin:0 0 13px}.control-label>span{display:block;margin-bottom:6px;font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:#6b726d}.control-label select,.control-label input{width:100%;height:38px;border:1px solid #cfcdc6;background:white;border-radius:6px;padding:0 9px;font-size:10px}.stale{padding:9px;border:1px solid #e3c79c;border-radius:6px;background:#fff7e8;color:#6d542d;font-size:9px;line-height:1.45}.conversion-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}.conversion-actions button,.recreate-inline{min-height:38px;border-radius:6px;font-size:8px;font-weight:800}.conversion-actions .secondary{border:1px solid #b8c8c0;background:white;color:#315447}.conversion-actions .primary,.recreate-inline{border:0;background:var(--forest);color:white}.progress{display:flex;gap:9px;align-items:center;background:#edf3f1;padding:10px;margin-top:10px;font-size:10px}.progress i{width:12px;height:12px;border:2px solid #91aca0;border-top-color:#315447;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.helper{font-size:10px;color:#747b76;line-height:1.5}.palette-empty{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px dashed #c9c7c0;border-radius:7px;color:#747a75;font-size:9px}.palette-empty strong{color:#303632}.palette-list{display:flex;flex-direction:column;gap:7px;margin-top:10px}.palette-row{display:grid;grid-template-columns:minmax(75px,1fr) 28px 74px 25px;align-items:center;border:1px solid #d7d4cd;border-radius:6px;background:white}.palette-row.chosen{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}.color-choice{border:0;background:transparent;display:flex;align-items:center;gap:7px;text-align:left;padding:6px;min-width:0}.color-choice>span:first-child{width:27px;height:27px;flex:0 0 auto;background:var(--color);border:1px solid rgba(0,0,0,.16)}.color-choice>span:last-child{min-width:0;display:flex;flex-direction:column}.color-choice strong{font-size:8px}.color-choice small{font-size:7px;color:#7c827e}.native-color{width:24px;height:24px;border:0;padding:0;background:transparent}.hex-input{width:70px;height:28px;border:1px solid #d0cec7;border-radius:4px;padding:0 5px;font:700 8px ui-monospace}.delete-color{border:0;background:transparent;color:#9b4e3a;font-size:16px}.add-color{display:grid;grid-template-columns:1fr 105px;gap:6px;margin-top:12px}.add-color input{height:36px;border:1px solid #cfcdc6;border-radius:6px;padding:0 9px;font:700 10px ui-monospace}.add-color button{border:0;border-radius:6px;background:var(--forest);color:white;font-size:8px;font-weight:800}.recreate-inline{width:100%;margin-top:9px}.palette-totals{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid #d4d1ca}.palette-totals span{display:flex;flex-direction:column;gap:3px}.palette-totals small{font-size:7px;letter-spacing:.12em;color:#858a86}.palette-totals strong{font:700 16px Georgia;color:var(--forest)}.canvas-column{min-width:0;display:grid;grid-template-rows:49px minmax(0,1fr) 72px}.canvas-toolbar{display:flex;justify-content:space-between;align-items:center;padding:0 12px;background:#f5f3ee;border-bottom:1px solid #c8c6bf}.tool-group{display:flex;height:100%}.tool-group button{width:56px;border:0;border-right:1px solid #dbd8d1;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#656c67}.tool-group button b{font-size:15px}.tool-group button span{font-size:7px;text-transform:uppercase;font-weight:800}.tool-group button.active{color:white;background:var(--forest)}.tool-group button:disabled{opacity:.3}.view-controls{display:flex;align-items:center;gap:5px}.view-controls label{font-size:9px}.view-controls button{height:27px;min-width:29px;border:1px solid #d0cec7;background:white;border-radius:4px}.view-controls span{font-size:9px;width:38px;text-align:center}.canvas-wrap{min-height:0}.palette-strip{display:flex;align-items:stretch;border-top:1px solid #c4c2bb;background:#f8f7f3;padding:9px 12px;gap:14px}.palette-meta{width:110px;display:flex;flex-direction:column;justify-content:center}.palette-meta small{font-size:7px;letter-spacing:.1em}.palette-meta strong{font:700 10px ui-monospace;margin-top:4px}.strip-scroll{display:flex;gap:5px;overflow-x:auto}.strip-scroll button{min-width:47px;border:1px solid #d2d0c9;border-radius:5px;background:white;display:grid;grid-template-columns:18px 1fr;align-items:center;padding:4px}.strip-scroll button.active{border-color:var(--cyan)}.strip-scroll i{width:18px;height:34px;background:var(--color)}.strip-scroll span,.strip-scroll small{font-size:7px}.open-palette{border:1px dashed #aaa;background:transparent;border-radius:6px;font-size:9px}.toast{position:fixed;z-index:60;left:50%;bottom:18px;transform:translateX(-50%);padding:10px 13px;border-radius:6px;color:white;font-size:10px;font-weight:750}.toast.success{background:#315447}.toast.error{background:#963f27;display:flex;gap:12px}.toast button{border:0;background:transparent;color:white}@media(max-width:1100px){.editor-body{grid-template-columns:280px minmax(380px,1fr)}.right-panel{display:none}.panel-tabs{display:grid}.mobile-palette{display:block}.import-panel.mobile-hidden{display:none}}@media(max-width:760px){.editor-shell{height:auto;min-height:100vh;overflow:auto}.editor-header{position:sticky;top:0;z-index:20}.project-metrics,.save-state{display:none}.editor-body{display:flex;flex-direction:column}.left-panel{order:2;max-height:none}.canvas-column{height:70vh;order:1}.palette-strip{overflow:hidden}.editor-header{gap:8px;padding:0 10px}.project-name{min-width:0;flex:1;padding-right:8px}.project-name input{width:100%}.header-export select{min-width:0;width:112px}.header-export button{min-width:68px;padding:0 7px}.history-buttons{display:none}}@media(max-width:520px){.header-export select{width:44px;color:transparent;padding:0}.header-export select:focus{width:112px;color:#353b37;padding-left:8px}.header-export button{min-width:64px}.project-name small{display:none}}
-	@media(max-width:520px){.header-export select,.header-export select:focus{width:90px;color:#353b37;padding:0 20px 0 7px}.header-export button{min-width:60px}.project-name small{display:none}}
-	.canvas-wrap{min-width:0;overflow:hidden}
-	.palette-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.palette-section-heading h2{margin-bottom:2px}.palette-section-heading small{font-size:7px;letter-spacing:.1em;color:#858a86;font-weight:800}.palette-section-heading>button{border:0;background:transparent;color:var(--accent);font-size:8px;font-weight:850;padding:8px 0}.palette-library-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:12px 0}.palette-library-actions button{min-height:35px;border:1px solid #c9c7c0;border-radius:6px;background:white;color:#45504a;font-size:8px;font-weight:850}.palette-library-actions button:last-child{border-color:#b8c9c1;color:var(--forest)}.palette-library-actions button:disabled{opacity:.4}
-	.palette-library-layer{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:18px}.palette-library-backdrop{position:absolute;inset:0;width:100%;height:100%;border:0;background:rgba(24,29,26,.52);backdrop-filter:blur(4px)}.palette-library-dialog{position:relative;width:min(650px,100%);max-height:calc(100vh - 36px);overflow:auto;border:1px solid #c7c4bc;border-radius:11px;background:#fbfaf7;padding:24px;box-shadow:0 24px 75px rgba(23,28,25,.32)}.global-palette-list{display:flex;flex-direction:column;gap:16px}.palette-library-section{display:flex;flex-direction:column;gap:7px}.library-section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 2px}.library-section-title>strong{font-size:8px;letter-spacing:.13em;text-transform:uppercase;color:#606862}.library-section-title>small{font-size:7px;letter-spacing:.09em;color:#8a8f8b;font-weight:850}.active-palette-section{padding:11px;border:2px solid var(--forest);border-radius:10px;background:#e8f1ec;box-shadow:0 5px 16px rgba(45,82,65,.1)}.active-palette-section .library-section-title>strong{color:var(--forest)}.active-status{display:inline-flex;align-items:center;border-radius:99px;background:var(--forest);color:white;padding:5px 8px;font-size:7px;letter-spacing:.08em;font-weight:900}.global-library-section{padding-top:15px;border-top:1px solid #d2d0c9}.global-palette-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:13px;border:1px solid #d4d1ca;border-radius:8px;background:white}.project-palette-card{border-color:#a8beb3;background:white}.suggestion-card{border-color:#c8dbe0;background:#f0f7f8}.global-palette-card.palette-card-active{border:2px solid var(--forest);box-shadow:inset 4px 0 0 var(--forest)}.global-palette-copy{min-width:0}.global-palette-copy>span{display:flex;align-items:baseline;gap:8px}.global-palette-copy strong{font-size:11px}.global-palette-copy small{font-size:7px;letter-spacing:.09em;color:#7c827e;font-weight:850}.global-palette-copy p{font-size:8px;color:#747a75;margin:7px 0 0}.global-swatches{display:flex;gap:4px;overflow:hidden;margin-top:9px}.global-swatches i{width:24px;height:24px;flex:0 0 auto;border:1px solid rgba(0,0,0,.14);border-radius:4px;background:var(--color)}.global-swatches.detailed i{width:28px;height:28px}.card-actions{display:flex;align-items:center;gap:5px}.card-actions button,.global-palette-card>button{height:32px;border-radius:5px;padding:0 10px;font-size:8px;font-weight:850;white-space:nowrap}.card-apply{border:0;background:var(--forest);color:white}.card-secondary{border:1px solid #b9c9c1;background:white;color:var(--forest)}.card-delete{border:0;background:#fff0eb;color:#98472e}.in-use-label{display:inline-flex;height:32px;align-items:center;border:1px solid #91ad9f;border-radius:5px;background:#e7f1ec;color:var(--forest);padding:0 9px;font-size:8px;font-weight:900;white-space:nowrap}.create-global-palette{width:100%;height:42px;margin-top:10px;border:1px dashed #aeb3ae;border-radius:7px;background:transparent;color:#48524c;font-size:9px;font-weight:850}.palette-draft-form{margin-top:18px}.draft-name{display:block;margin-bottom:12px}.draft-name span{display:block;margin-bottom:6px;font-size:8px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:#626a65}.draft-name input{width:100%;height:41px;border:1px solid #d0cec7;border-radius:6px;background:white;padding:0 10px;font-size:11px;font-weight:700}.draft-colors{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-height:330px;overflow:auto}.draft-color-row{display:grid;grid-template-columns:32px 1fr 29px;align-items:center;border:1px solid #d5d2cb;border-radius:6px;background:white;padding:4px}.draft-color-row input[type=color]{width:28px;height:28px;border:0;padding:0;background:transparent}.draft-color-row input:not([type=color]){min-width:0;height:29px;border:0;padding:0 7px;font:700 9px ui-monospace}.draft-color-row button{height:28px;border:0;background:transparent;color:#9b4e3a;font-size:16px}.draft-color-row button:disabled{opacity:.25}.add-draft-color{width:100%;height:36px;margin-top:8px;border:1px dashed #b9b7b0;border-radius:6px;background:transparent;font-size:8px;font-weight:850}.draft-error{font-size:8px;color:#9b472d}.palette-library-dialog .dialog-actions{margin-bottom:0}
-	.project-metrics{border:0;background:transparent;padding:7px 9px;border-radius:6px;cursor:pointer}.project-metrics:hover,.project-metrics:focus-visible{background:#eeece6;outline:none}.project-metrics b{font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-left:3px}.canvas-settings-layer{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:18px}.canvas-settings-backdrop{position:absolute;inset:0;width:100%;height:100%;border:0;background:rgba(24,29,26,.48);backdrop-filter:blur(3px)}.canvas-settings-dialog{position:relative;width:min(440px,100%);border:1px solid #c7c4bc;border-radius:10px;background:#fbfaf7;padding:24px;box-shadow:0 24px 70px rgba(23,28,25,.28)}.dialog-heading{display:flex;align-items:flex-start;justify-content:space-between}.dialog-heading h2{font-size:25px;letter-spacing:-.05em;margin:5px 0 0}.dialog-heading>button{width:32px;height:32px;border:1px solid #d1cec6;border-radius:6px;background:white;color:#5f6661;font-size:19px}.dialog-helper{font-size:10px;line-height:1.55;color:#727973;margin:12px 0 18px}.size-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.size-field-grid label,.size-field{display:block;margin-bottom:12px}.size-field-grid label>span,.size-field>span{display:block;margin-bottom:6px;font-size:8px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:#626a65}.size-field-grid label>div,.size-field>div{position:relative}.size-field-grid input,.size-field input{width:100%;height:41px;border:1px solid #d0cec7;border-radius:6px;background:white;padding:0 42px 0 10px;font-size:11px;font-weight:700}.size-field-grid b,.size-field b{position:absolute;right:11px;top:14px;font-size:8px;color:#858b86}.size-result{display:grid;grid-template-columns:1fr 1fr;border:1px solid #c5d5cd;border-radius:7px;background:#edf3f0;margin-top:3px}.size-result>span{display:flex;flex-direction:column;gap:4px;padding:12px}.size-result>span+span{border-left:1px solid #c5d5cd}.size-result small{font-size:7px;letter-spacing:.13em;font-weight:850;color:#718078}.size-result strong{font:700 19px Georgia;color:var(--forest)}.size-result.invalid{border-color:#e8bba8;background:#fff3ed}.size-error,.size-note{font-size:9px;line-height:1.5}.size-error{color:#9b472d}.size-note{padding:9px;border-radius:6px;background:#fff6e6;color:#765c30}.dialog-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:18px}.dialog-actions button{height:41px;border-radius:6px;font-size:9px;font-weight:850}.dialog-actions .cancel{border:1px solid #cbc9c2;background:white;color:#5e6560}.dialog-actions .apply{border:0;background:var(--forest);color:white}.dialog-actions .apply:disabled{opacity:.42}
-	@media(max-width:760px){.project-metrics{display:flex;width:38px;height:36px;flex:0 0 auto;margin-right:0;padding:0;justify-content:center;border:1px solid #d0cec7;background:white}.project-metrics span,.project-metrics i{display:none}.project-metrics b{font-size:0;margin:0}.project-metrics b:before{content:"▦";font-size:16px}.canvas-settings-dialog,.palette-library-dialog{padding:20px}.size-field-grid,.draft-colors{grid-template-columns:1fr}.global-palette-card{grid-template-columns:1fr}.global-palette-copy>span{align-items:flex-start;flex-direction:column;gap:3px}.card-actions{justify-content:flex-end}}
+	.editor-shell{height:100vh;min-height:680px;display:flex;flex-direction:column;overflow:hidden;background:#f4f1e8;color:var(--ink);font-size:14px}.editor-header{height:56px;flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid #ded9ca;background:#fffdfa;z-index:20}.icon-button{width:42px;height:42px;border:1px solid #ddd8cb;border-radius:7px;background:white;font-size:20px}.editor-brand{height:38px;display:flex;align-items:center;gap:8px;padding-right:14px;border-right:1px solid #e1dccf;text-decoration:none;color:var(--ink)}.editor-brand img{width:32px;height:32px;image-rendering:pixelated}.editor-brand>span{display:flex;flex-direction:column;font:700 13px "Readex Pro",sans-serif;letter-spacing:.08em}.editor-brand small{font:800 7px Poppins,sans-serif;letter-spacing:.14em;color:var(--forest);margin-top:3px}.project-name{width:190px;min-width:110px;height:38px;border:0;background:transparent;font:650 15px "Readex Pro",sans-serif}.metric-chip{height:38px;border:1px solid #e0dbcf;border-radius:7px;background:#faf8f1;padding:0 12px;color:#59635d;font-size:12px}.header-spacer{flex:1}.secondary,.primary,.export-select{min-height:42px;border-radius:7px;font-size:13px;font-weight:650}.secondary{border:1px solid #d8d3c6;background:white;color:var(--ink)}.secondary.compact{min-height:38px;padding:0 12px}.primary{border:0;background:var(--forest);color:white;padding:0 15px}.panel-picker{position:relative}.panel-menu{position:absolute;z-index:80;right:0;top:44px;width:190px;padding:8px;border:1px solid #d7d2c5;border-radius:9px;background:white;box-shadow:0 14px 32px rgba(29,40,34,.16)}.panel-menu label{min-height:42px;display:flex;align-items:center;gap:10px;padding:0 8px;font-size:13px}.save-state{display:flex;align-items:center;gap:7px;color:#68716c;font-size:12px;white-space:nowrap}.save-state i{width:8px;height:8px;border-radius:50%;background:#17804f}.save-state.problem i{background:var(--danger)}.export-select{height:38px;border:1px solid #d8d3c6;background:white;padding:0 28px 0 10px}.export{height:40px}.editor-body{min-height:0;flex:1;display:grid;grid-template-columns:270px minmax(440px,1fr) 290px}.editor-body.no-left{grid-template-columns:minmax(440px,1fr) 290px}.editor-body.no-right{grid-template-columns:270px minmax(440px,1fr)}.editor-body.no-left.no-right{grid-template-columns:1fr}.side-panel{min-width:0;display:flex;flex-direction:column;background:#fffdfa}.left-panel{border-right:1px solid #ddd8cc}.right-panel{border-left:1px solid #ddd8cc}.panel-title{height:51px;display:flex;align-items:center;justify-content:space-between;padding:0 14px}.panel-title strong{font:650 15px "Readex Pro",sans-serif}.panel-title button{width:36px;height:36px;border:0;background:transparent;font-size:22px}.tabs{display:grid;grid-template-columns:1fr 1fr;padding:0 12px;border-bottom:1px solid #e2ddd2}.tabs.three{grid-template-columns:repeat(3,1fr)}.tabs button{min-height:42px;border:0;border-bottom:2px solid transparent;background:transparent;color:#5d6661;font-size:12px}.tabs button.active{border-bottom-color:var(--forest);color:var(--forest);font-weight:700}.panel-scroll{min-height:0;overflow-y:auto}.panel-section{padding:16px}.panel-section h2{margin:0 0 10px;font:650 20px "Readex Pro",sans-serif}.segmented{display:grid;grid-template-columns:1fr 1fr;margin-bottom:12px}.segmented button{min-height:42px;border:1px solid #dbd6ca;background:#fff;font-size:12px}.segmented button:first-child{border-radius:7px 0 0 7px}.segmented button:last-child{border-radius:0 7px 7px 0}.segmented button.active{border-color:#77a28a;background:#edf6f1;color:var(--forest);font-weight:700}.source-preview{height:190px;display:grid;place-items:center;overflow:hidden;border:1px solid #ddd8cc;border-radius:8px;background:#f2f0e9}.source-preview img{width:100%;height:100%;object-fit:contain}.source-preview :global(canvas){max-width:100%;max-height:100%}.source-empty{color:var(--muted);font-size:13px}.upload{width:100%;display:flex;align-items:center;justify-content:center;margin:10px 0}.fit{margin-top:10px}.summary-card{display:flex;flex-direction:column;gap:8px;margin-top:14px;padding:14px;border:1px solid #ddd8cc;border-radius:8px;background:#fbfaf5}.summary-card strong{font-size:14px}.summary-card strong small{color:var(--forest)}.summary-card span{font-size:12px;color:#59635d}.summary-card button{margin-top:4px}.helper{color:var(--muted);font-size:13px;line-height:1.55}.field{position:relative;display:block;margin-bottom:13px}.field>span{display:block;margin-bottom:6px;color:#59625d;font-size:12px;font-weight:700}.field input,.field select{width:100%;height:43px;border:1px solid #d8d3c6;border-radius:7px;background:white;padding:0 10px;color:var(--ink);font-size:13px}.field>b{position:absolute;right:10px;bottom:14px;color:var(--muted);font-size:11px}.stale,.lock-note{padding:10px;border:1px solid #e2c99c;border-radius:7px;background:#fff8e8;color:#765c31;font-size:12px;line-height:1.45}.wide{width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center}.suggestion-strip,.swatches{display:flex;gap:5px;flex-wrap:wrap;margin-top:12px}.suggestion-strip i,.swatches i{width:28px;height:28px;border:1px solid rgba(0,0,0,.14);border-radius:4px;background:var(--color)}.property-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.property-grid span{display:flex;flex-direction:column;gap:5px;padding:12px;border:1px solid #ded9cd;border-radius:7px;background:#faf9f4}.property-grid small{color:var(--muted);font-size:11px}.property-grid strong{font-size:13px}.canvas-workspace{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;background:#f3f0e7}.context-bar{height:48px;display:flex;align-items:center;gap:8px;padding:6px 10px;margin:10px auto 7px;border:1px solid #dfdacd;border-radius:9px;background:white;box-shadow:0 7px 18px rgba(31,43,36,.07)}.active-swatch{width:32px;height:32px;border:1px solid rgba(0,0,0,.15);border-radius:5px;background:var(--color)}.context-bar button{width:34px;height:34px;border:0;background:transparent;font-size:19px}.context-bar button:disabled{opacity:.3}.divider{height:24px;width:1px;background:#ded9cd}.canvas-main{min-width:0;min-height:0;width:100%;flex:1;display:grid;grid-template-columns:70px minmax(0,1fr);padding:0 12px}.tool-rail{align-self:center;z-index:3;display:flex;flex-direction:column;border:1px solid #ddd8cc;border-radius:9px;background:white;box-shadow:0 8px 22px rgba(31,43,36,.08);overflow:hidden}.tool-rail button{min-height:62px;border:0;border-bottom:1px solid #ece8de;background:white;color:#515b55;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}.tool-rail button:last-child{border-bottom:0}.tool-rail button b{font-size:20px}.tool-rail button span{font-size:10px}.tool-rail button.active{background:var(--forest);color:white}.tool-rail button:disabled{opacity:.35}.canvas-wrap{min-width:0;min-height:0;margin-left:10px;overflow:hidden}.view-controls{min-height:54px;display:flex;align-items:center;gap:7px;padding:6px 12px;margin:7px auto;border:1px solid #dfdacd;border-radius:9px;background:white;box-shadow:0 7px 18px rgba(31,43,36,.06)}.view-controls label{display:flex;align-items:center;gap:6px}.view-controls button{min-width:38px;height:38px;border:1px solid #ddd8cc;border-radius:6px;background:white}.view-controls span{min-width:48px;text-align:center}.view-controls b{margin-left:7px;font-size:12px}.quick-palette{position:relative;min-height:68px;max-width:calc(100% - 36px);display:flex;align-items:center;gap:6px;padding:7px 42px 7px 10px;margin:0 auto 10px;border:1px solid #dfdacd;border-radius:9px;background:white;box-shadow:0 7px 18px rgba(31,43,36,.06);overflow-x:auto}.quick-palette>span{display:flex;flex-direction:column;gap:3px;padding-right:8px;border-right:1px solid #e2ddd2}.quick-palette>span small{font-size:10px}.quick-palette i{display:block;width:32px;height:32px;border:1px solid rgba(0,0,0,.14);border-radius:4px;background:var(--color)}.quick-palette>button:not(.quick-close):not(.empty-palette){min-width:46px;height:50px;border:1px solid transparent;border-radius:6px;background:white;display:grid;grid-template-columns:12px 1fr;align-items:center;padding:4px}.quick-palette>button.active{border-color:var(--accent)!important}.quick-palette button small{font-size:10px}.quick-close{position:absolute;right:5px;top:5px;width:32px;height:32px;border:0;background:transparent}.empty-palette{height:42px;border:1px dashed #aeb5b0;border-radius:6px;background:white}.palette-overview{display:grid;grid-template-columns:1fr 1fr;gap:8px}.palette-overview button{position:relative;min-height:105px;border:1px solid #ded9cd;border-radius:8px;background:white;padding:8px;text-align:left}.palette-overview button.active{border:2px solid var(--accent)}.palette-overview i{display:block;width:100%;height:54px;border-radius:6px;background:var(--color)}.palette-overview span{display:block;margin-top:5px;font-size:12px;font-weight:700}.palette-overview small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#5e6862;font-size:10px}.palette-overview b{position:absolute;right:8px;top:8px;background:white;border-radius:50%;padding:2px}.panel-empty{padding:20px;border:1px dashed #cfc9bc;border-radius:8px;color:var(--muted);font-size:13px;text-align:center}.add-color{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:12px}.add-color input{min-width:0;height:42px;border:1px solid #d8d3c6;border-radius:7px;padding:0 10px;font:650 13px ui-monospace}.color-detail{display:grid;grid-template-columns:68px 1fr 42px;gap:10px;align-items:center;margin-bottom:18px}.detail-swatch{height:68px;border:1px solid rgba(0,0,0,.14);border-radius:7px;background:var(--color)}.color-detail>div:nth-child(2){display:flex;flex-direction:column}.color-detail small{color:var(--muted);font-size:10px}.color-detail strong{margin:3px 0;font-size:15px}.color-detail span{color:var(--muted);font-size:11px}.color-detail button{width:42px;height:42px;border:1px solid #ddd8cc;border-radius:7px;background:white}.color-detail button.locked{background:#eef6f1;border-color:#8eaf9d}.detail-actions{position:relative;display:grid;grid-template-columns:1fr 48px;gap:8px}.detail-actions input{width:100%;height:44px}.color-menu{position:absolute;z-index:5;right:0;top:50px;width:190px;padding:6px;border:1px solid #d8d3c6;border-radius:8px;background:white;box-shadow:0 12px 28px rgba(31,43,36,.16)}.color-menu button{width:100%;height:40px;border:0;background:white;text-align:left;padding:0 10px}.color-menu .danger{color:var(--danger)}.modal-layer{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:18px}.modal-backdrop{position:absolute;inset:0;border:0;background:rgba(24,31,27,.52);backdrop-filter:blur(3px)}.modal-card{position:relative;width:min(720px,100%);max-height:calc(100vh - 36px);overflow:auto;padding:24px;border:1px solid #d3cec1;border-radius:12px;background:#fffdfa;box-shadow:0 28px 80px rgba(22,29,25,.28)}.modal-card.small{width:min(460px,100%)}.modal-heading{display:flex;align-items:flex-start;justify-content:space-between}.modal-heading small{color:var(--forest);font-size:10px;font-weight:800;letter-spacing:.14em}.modal-heading h2{margin:4px 0 0;font:650 25px "Readex Pro",sans-serif}.modal-heading>button{width:40px;height:40px;border:1px solid #ddd8cc;border-radius:7px;background:white;font-size:20px}.modal-card>p{color:var(--muted);font-size:13px}.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.size-result{display:grid;grid-template-columns:1fr 1fr;margin-top:8px;border:1px solid #bcd2c6;border-radius:8px;background:#edf6f1}.size-result span{padding:12px}.size-result span+span{border-left:1px solid #c6d8ce}.size-result small{display:block;color:#65776d;font-size:10px}.size-result strong{display:block;margin-top:4px;color:var(--forest);font-size:18px}.modal-actions{display:grid;grid-template-columns:1fr 1.5fr;gap:8px;margin-top:18px}.error-text{color:var(--danger)!important}.library-list{display:flex;flex-direction:column;gap:9px;margin:16px 0}.library-list article{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px;border:1px solid #ddd8cc;border-radius:8px;background:white}.library-list article>div:first-child{display:flex;flex-direction:column}.library-list small{margin-top:3px;color:var(--muted);font-size:11px}.library-list article>div:last-child{display:flex;align-items:center;gap:7px}.danger-link{border:0;background:transparent;color:var(--danger)}.in-use{padding:7px;border-radius:99px;background:#e9f4ee;color:var(--forest);font-size:11px}.draft-colors{display:flex;flex-direction:column;gap:7px}.draft-colors>div{display:grid;grid-template-columns:44px 110px 1fr 40px;gap:7px}.draft-colors input{min-width:0;height:40px;border:1px solid #d8d3c6;border-radius:6px;padding:0 8px}.draft-colors button{border:0;background:transparent;color:var(--danger)}.toast{position:fixed;z-index:120;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:8px;color:white;font-size:13px;font-weight:650;box-shadow:0 12px 30px rgba(31,37,34,.22)}.toast.success{background:#226b4a}.toast.error{background:#963f27}.toast button{border:0;background:transparent;color:white;font-size:18px}@media(max-width:1150px){.editor-header{gap:6px}.editor-brand span,.save-state span{display:none}.project-name{width:140px}.metric-chip{display:none}.editor-body,.editor-body.no-left{grid-template-columns:260px minmax(400px,1fr)}.right-panel{position:fixed;z-index:60;right:0;top:56px;bottom:0;width:300px;box-shadow:-12px 0 30px rgba(25,34,29,.16)}.editor-body.no-left{grid-template-columns:1fr}.editor-body.no-right{grid-template-columns:260px 1fr}}@media(max-width:760px){.editor-shell{min-height:100vh;height:auto;overflow:auto}.editor-header{position:sticky;top:0}.editor-brand,.metric-chip,.panel-picker,.export-select{display:none}.project-name{flex:1}.editor-body,.editor-body.no-left,.editor-body.no-right,.editor-body.no-left.no-right{display:flex;flex-direction:column}.canvas-workspace{order:1;height:calc(100vh - 56px);min-height:680px}.left-panel,.right-panel{position:fixed;z-index:70;left:0;right:0;top:auto;bottom:0;width:100%;height:min(72vh,620px);border:1px solid #d8d3c6;border-radius:14px 14px 0 0;box-shadow:0 -15px 40px rgba(25,34,29,.2)}.canvas-main{grid-template-columns:1fr;padding:0 8px}.tool-rail{position:absolute;left:8px;bottom:142px;right:8px;flex-direction:row;overflow-x:auto}.tool-rail button{min-width:62px;min-height:54px;border-bottom:0;border-right:1px solid #ece8de}.canvas-wrap{margin:0}.context-bar{margin-top:6px}.view-controls{max-width:calc(100% - 16px)}.view-controls b{display:none}.quick-palette{margin-bottom:72px}.draft-colors>div{grid-template-columns:40px 96px 1fr 36px}.modal-card{padding:18px}.field-grid{grid-template-columns:1fr}}
+	/* Reference panel: keep controls inside narrow desktop panels and mobile sheets. */
+	.panel-scroll{min-width:0;overflow-x:hidden}
+	.panel-section{min-width:0}
+	.segmented{min-width:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+	.segmented button{min-width:0;padding-inline:8px;line-height:1.25;white-space:normal}
+	.source-preview{position:relative;width:100%}
+	.source-upload{display:grid;margin:0;cursor:pointer;transition:border-color .16s,box-shadow .16s}
+	.source-upload:hover,.source-upload:focus-within{border-color:#6f9d84;box-shadow:0 0 0 3px rgba(37,111,75,.1)}
+	.source-upload.disabled{cursor:wait;opacity:.68}
+	.source-empty{max-width:180px;line-height:1.45;text-align:center}
+	.source-upload-hint{position:absolute;left:8px;right:8px;bottom:8px;min-height:34px;display:flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:6px;background:rgba(25,38,31,.82);color:white;font-size:11px;font-weight:750;line-height:1.35;text-align:center}
+	.fit{margin-top:12px}
+	.reconstruction-update{min-width:0;display:flex;flex-direction:column;gap:10px;margin-top:12px;padding:12px;border:1px solid #d7bd80;border-radius:8px;background:#fff8e7}
+	.reconstruction-update span{min-width:0;display:flex;flex-direction:column;gap:3px}
+	.reconstruction-update strong{font-size:13px}
+	.reconstruction-update small{color:#746344;font-size:11px;line-height:1.4}
+	.reconstruction-update button{width:100%;min-width:0;min-height:44px;white-space:normal}
+	.summary-card,.field,.property-grid span{min-width:0}
+	.summary-card span,.summary-card button,.stale,.lock-note,.property-grid strong{overflow-wrap:anywhere}
+	.summary-card button,.wide{min-width:0;white-space:normal}
+	.field input,.field select{min-width:0}
+	.property-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+	.library-list article{position:relative;transition:border-color .16s,background .16s,box-shadow .16s}
+	.library-list article.active{border-color:#2e7653;background:#f0f8f3;box-shadow:inset 4px 0 0 var(--forest)}
+	.library-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+	.library-actions .primary{min-width:126px}
+	.in-use{display:inline-flex;align-items:center;min-height:38px;padding:8px 12px;border:1px solid #8db7a0;background:#dff1e7;color:#075f38;font-size:11px;font-weight:800;white-space:nowrap}
+	.library-list article.matches-active{border-color:#a9c9b8;background:#f8fcf9}
+	.palette-match{display:inline-flex;align-items:center;min-height:38px;padding:8px 12px;border-radius:99px;background:#edf6f1;color:#246446;font-size:11px;font-weight:750;white-space:nowrap}
+	.context-bar .tool-label,.context-bar .selection-label{max-width:210px;font-size:11px;line-height:1.25}.context-bar .tool-label{color:var(--muted);font-weight:650}.context-bar .selection-label{color:var(--forest)}.context-bar .context-action{width:auto;min-width:0;height:34px;padding:0 10px;border:1px solid #d8d3c6;border-radius:6px;background:#fff;font-size:10px;font-weight:750;white-space:nowrap}.context-bar .context-action:hover{border-color:#6f9d84;background:#f0f7f3}
+	@media(max-width:560px){.library-list article{grid-template-columns:1fr}.library-actions{justify-content:flex-start}.library-actions .primary{width:100%}}
+	.editor-body{position:relative}.viewer-banner{position:absolute;z-index:55;left:50%;top:8px;transform:translateX(-50%);padding:7px 12px;border:1px solid #d8b86f;border-radius:99px;background:#fff8e5;color:#725a25;font-size:10px;font-weight:800;box-shadow:0 5px 14px rgba(62,48,22,.1);white-space:nowrap}.readonly .source-upload,.readonly .context-bar,.readonly .quick-palette,.readonly .right-panel,.readonly .left-panel button,.readonly .left-panel input,.readonly .left-panel select{pointer-events:none}.readonly .source-upload,.readonly .right-panel,.readonly .left-panel{filter:saturate(.75)}
+	.shortcut-button{min-width:38px;font-size:15px}.shortcut-modal{width:min(780px,100%)}.shortcut-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}.shortcut-grid>section{padding:14px;border:1px solid #ddd8cc;border-radius:9px;background:#faf9f4}.shortcut-grid h3{margin:0 0 10px;font:650 14px "Readex Pro",sans-serif}.shortcut-grid section>div{min-height:34px;display:grid;grid-template-columns:minmax(58px,auto) 1fr;align-items:center;gap:9px;border-top:1px solid #ebe7de}.shortcut-grid kbd{width:max-content;max-width:100%;padding:3px 6px;border:1px solid #cfc9bc;border-bottom-width:2px;border-radius:5px;background:white;font:700 10px ui-monospace,monospace;white-space:nowrap}.shortcut-grid span{color:#56615b;font-size:11px}@media(max-width:700px){.shortcut-grid{grid-template-columns:1fr}.shortcut-modal{max-height:calc(100vh - 20px)}}
 </style>

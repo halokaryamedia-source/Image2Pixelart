@@ -11,6 +11,7 @@ interface MosaicDatabase extends DBSchema {
 	catalog: { key: string; value: LegacyCatalogColor; indexes: { 'by-name': string } };
 	sourceImages: { key: string; value: SourceImage };
 	globalPalettes: { key: string; value: GlobalPalette; indexes: { 'by-updated': string } };
+	cloudDrafts: { key: string; value: StoredProject };
 }
 
 let databasePromise: Promise<IDBPDatabase<MosaicDatabase>> | undefined;
@@ -18,7 +19,7 @@ const sourceDataUrls = new Map<string, string>();
 
 function database(): Promise<IDBPDatabase<MosaicDatabase>> {
 	if (!databasePromise) {
-		databasePromise = openDB<MosaicDatabase>('mosaic-plan', 3, {
+		databasePromise = openDB<MosaicDatabase>('mosaic-plan', 4, {
 			upgrade(db, oldVersion) {
 				if (oldVersion < 1) {
 					const projects = db.createObjectStore('projects', { keyPath: 'id' });
@@ -31,10 +32,25 @@ function database(): Promise<IDBPDatabase<MosaicDatabase>> {
 					const globalPalettes = db.createObjectStore('globalPalettes', { keyPath: 'id' });
 					globalPalettes.createIndex('by-updated', 'updatedAt');
 				}
+				if (oldVersion < 4) db.createObjectStore('cloudDrafts');
 			}
 		});
 	}
 	return databasePromise;
+}
+
+export async function saveCloudDraft(project: ProjectV2): Promise<void> {
+	const snapshot = cloneProject(project); const { sourceImage: _sourceImage, ...stored } = snapshot;
+	await (await database()).put('cloudDrafts', stored, snapshot.id);
+}
+
+export async function loadCloudDraft(id: string): Promise<ProjectV2 | undefined> {
+	const stored = await (await database()).get('cloudDrafts', id);
+	return stored ? migrateStoredProject(stored) : undefined;
+}
+
+export async function deleteCloudDraft(id: string): Promise<void> {
+	await (await database()).delete('cloudDrafts', id);
 }
 
 export async function loadGlobalPalettes(): Promise<GlobalPalette[]> {

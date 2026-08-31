@@ -10,7 +10,7 @@ describe('CSV', () => {
 
 	it('excludes empty cells from material totals and leaves matrix entries blank', () => {
 		const project = createProject({ name: 'Test', widthMm: 100, heightMm: 100, cellMm: 50 });
-		project.palette = [{ id: 'blue', slot: 0, hex: '#00AACC' }];
+		project.palette = [{ id: 'blue', slot: 0, hex: '#00AACC', locked: false }];
 		project.cells[0] = 0;
 		expect(materialListCsv(project)).toContain('1,#00AACC,1,25');
 		const matrix = gridMatrixCsv(project);

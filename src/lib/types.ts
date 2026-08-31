@@ -2,12 +2,14 @@ export const EMPTY_CELL = 0xffff;
 
 export type PlacementMode = 'crop' | 'fit';
 export type RenderMode = 'contour' | 'photo';
-export type EditorTool = 'pencil' | 'fill' | 'picker' | 'eraser' | 'pan';
+export type EditorTool = 'pencil' | 'fill' | 'picker' | 'eraser' | 'select' | 'pan';
 
 export type ProjectPaletteEntry = {
 	id: string;
 	slot: number;
 	hex: string;
+	name?: string;
+	locked: boolean;
 };
 
 export type GlobalPaletteColor = {
@@ -49,7 +51,7 @@ export type ImportSettings = {
 };
 
 export type ProjectV2 = {
-	schemaVersion: 2;
+	schemaVersion: 3;
 	id: string;
 	name: string;
 	widthMm: number;
@@ -66,7 +68,7 @@ export type ProjectV2 = {
 	updatedAt: string;
 };
 
-// Compatibility alias for existing internal imports. Serialized projects use schema v2.
+// Compatibility aliases for existing internal imports. Serialized projects use schema v3.
 export type ProjectV1 = ProjectV2;
 
 export type SerializedProjectV2 = Omit<ProjectV2, 'cells'> & {

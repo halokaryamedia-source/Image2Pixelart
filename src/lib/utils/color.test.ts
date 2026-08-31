@@ -10,7 +10,7 @@ describe('color utilities', () => {
 	});
 
 	it('maps a sample to the nearest project color', () => {
-		const palette: ProjectPaletteEntry[] = [{ id: 'red', slot: 0, hex: '#FF0000' }, { id: 'blue', slot: 1, hex: '#0000FF' }];
+		const palette: ProjectPaletteEntry[] = [{ id: 'red', slot: 0, hex: '#FF0000', locked: false }, { id: 'blue', slot: 1, hex: '#0000FF', locked: false }];
 		expect(nearestPaletteIndex(hexToOklab('#0000F5'), palette)).toBe(1);
 	});
 

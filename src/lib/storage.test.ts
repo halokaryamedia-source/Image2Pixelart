@@ -13,7 +13,7 @@ describe('IndexedDB project persistence', () => {
 
 	it('preserves empty cells, local palette, settings, and source image', async () => {
 		const project = createProject({ name: 'Persisted lobby', widthMm: 1200, heightMm: 2400, cellMm: 50 });
-		project.palette = [{ id: 'red', slot: 0, hex: '#FF0000' }];
+		project.palette = [{ id: 'red', slot: 0, hex: '#FF0000', locked: false }];
 		project.cells[0] = 0;
 		project.importSettings = { placement: 'fit', crop: null, renderMode: 'photo', suggestionCount: 8 };
 		project.sourceImage = { name: 'source.webp', type: 'image/webp', dataUrl: 'data:image/webp;base64,AAAA', width: 10, height: 20 };

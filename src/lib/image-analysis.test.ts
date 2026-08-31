@@ -3,7 +3,7 @@ import { analyzeRaster, SAMPLE_SCALE } from './image-analysis';
 import type { ConversionRequest } from './types';
 
 function request(renderMode: 'contour' | 'photo', suggestPalette = false): ConversionRequest {
-	return { buffer: new ArrayBuffer(0), mimeType: 'image/png', columns: 1, rows: 1, placement: 'crop', crop: null, renderMode, suggestionCount: 2, palette: [{ id: 'black', slot: 0, hex: '#000000' }, { id: 'white', slot: 1, hex: '#FFFFFF' }], suggestPalette };
+	return { buffer: new ArrayBuffer(0), mimeType: 'image/png', columns: 1, rows: 1, placement: 'crop', crop: null, renderMode, suggestionCount: 2, palette: [{ id: 'black', slot: 0, hex: '#000000', locked: false }, { id: 'white', slot: 1, hex: '#FFFFFF', locked: false }], suggestPalette };
 }
 
 describe('raster analysis', () => {
