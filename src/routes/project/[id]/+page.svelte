@@ -3,7 +3,6 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import EditorView from '$lib/components/EditorView.svelte';
-	import PlayerEditorView from '$lib/components/PlayerEditorView.svelte';
 	import { deleteCloudDraft, loadGlobalPalettes, saveCloudDraft, saveGlobalPalette, deleteGlobalPalette } from '$lib/storage';
 	import { createGlobalPalette } from '$lib/global-palettes';
 	import { grantCloudEditor, joinCloudProject, loadCloudProject, registerDevice, restoreCloudProject, saveCloudProject, uploadSourceImage } from '$lib/cloud/api';
@@ -33,7 +32,6 @@
 	let pendingSource: PendingSourceUpload | undefined;
 	let uploadingSource = false;
 	let editable = $derived(!!device && !!meta && meta.activeEditorDeviceId === device.id && realtimeState === 'connected');
-	let isAdmin = $derived(!!device && !!meta && meta.ownerDeviceId === device.id);
 	let requestingEdit = $derived(!!device && !!participants.find((participant) => participant.deviceId === device!.id)?.requestingEdit);
 
 	onMount(() => {
@@ -62,7 +60,7 @@
 		} catch (caught) {
 			const api = caught as Error & { status?: number; payload?: { ownerDeviceId?: string; purgeAfter?: string } };
 			if (api.status === 410) deleted = { ownerDeviceId: api.payload?.ownerDeviceId || '', purgeAfter: api.payload?.purgeAfter };
-			else error = api.message || 'Proyek gagal dibuka.';
+			else error = api.message || 'Proyek cloud gagal dibuka.';
 		}
 	}
 
@@ -73,7 +71,7 @@
 		meta = { ...meta, activeEditorDeviceId: snapshot.activeEditorDeviceId, editorEpoch: snapshot.editorEpoch };
 		if (becomingEditor) {
 			try { const latest = await loadCloudProject(device, projectId); project = latest.project; meta = latest.meta; realtime?.setCurrentProject(latest.project); }
-			catch { error = 'Versi terbaru proyek gagal dimuat. Coba muat ulang halaman.'; }
+			catch (caught) { error = caught instanceof Error ? caught.message : 'Revision terbaru gagal dimuat.'; }
 		}
 		if (snapshot.activeEditorDeviceId === device.id && project) realtime?.broadcastProject(project);
 	}
@@ -97,7 +95,7 @@
 				meta = { ...meta!, revision: saved.revision }; saveState = 'saved'; realtime?.broadcastProject(snapshot); await deleteCloudDraft(projectId);
 			} catch (caught) {
 				pendingProject ??= snapshot; saveState = 'error'; await saveCloudDraft(snapshot);
-				error = caught instanceof Error && /Admin proyek/.test(caught.message) ? caught.message : 'Perubahan belum dapat disimpan. Coba lagi setelah koneksi stabil.';
+				error = caught instanceof Error ? caught.message : 'Autosave cloud gagal.';
 			}
 		})();
 		try { await saveInFlight; } finally { saveInFlight = null; }
@@ -109,7 +107,7 @@
 			await flushSave(); if (saveState === 'error') return;
 			const granted = await grantCloudEditor(device, projectId, targetDeviceId, meta.revision);
 			meta = { ...meta, ...granted };
-		} catch { error = 'Akses edit belum dapat dipindahkan. Coba lagi.'; }
+		} catch (caught) { error = caught instanceof Error ? caught.message : 'Editor gagal dipindahkan.'; }
 	}
 
 	async function sourceChanged(file: File, next: ProjectV2) {
@@ -118,7 +116,7 @@
 		try {
 			const uploaded = await uploadSourceImage(device, projectId, file, { width: next.sourceImage.width, height: next.sourceImage.height });
 			meta = { ...meta, revision: uploaded.revision };
-		} catch (caught) { error = 'Gambar sumber belum dapat disimpan. Coba lagi setelah koneksi stabil.'; throw caught; }
+		} catch (caught) { error = caught instanceof Error ? caught.message : 'Gambar sumber gagal disimpan ke R2.'; throw caught; }
 	}
 
 	async function uploadPendingSource() {
@@ -128,30 +126,24 @@
 			await uploadSourceImage(device, projectId, upload.file, { width: upload.width, height: upload.height });
 			const latest = await loadCloudProject(device, projectId);
 			project = latest.project; meta = latest.meta; realtime?.setCurrentProject(latest.project);
-		} catch { pendingSource = upload; setPendingUpload(projectId, upload); error = 'Gambar awal belum dapat disimpan. Coba lagi setelah koneksi stabil.'; }
+		} catch (caught) { pendingSource = upload; setPendingUpload(projectId, upload); error = caught instanceof Error ? caught.message : 'Gambar awal gagal diunggah.'; }
 		finally { uploadingSource = false; }
 	}
 
 	async function leave() { await flushSave(); realtime?.stop(); await goto('/'); }
-	async function restore() { if (!device) return; try { await restoreCloudProject(device, projectId); deleted = null; await initialize(); } catch { error = 'Proyek gagal dipulihkan.'; } }
+	async function restore() { if (!device) return; try { await restoreCloudProject(device, projectId); deleted = null; await initialize(); } catch (caught) { error = caught instanceof Error ? caught.message : 'Proyek gagal dipulihkan.'; } }
 	async function addGlobalPalette(input: { name: string; colors: Array<{ hex: string; name?: string }> }) { const palette = createGlobalPalette(input.name, input.colors); await saveGlobalPalette(palette); globalPalettes = [...globalPalettes, palette]; }
 	async function removeGlobalPalette(id: string) { await deleteGlobalPalette(id); globalPalettes = globalPalettes.filter((palette) => palette.id !== id); }
-
-	let collaboration = $derived.by(() => device && meta ? ({ participants, deviceId: device.id, ownerDeviceId: meta.ownerDeviceId, activeEditorDeviceId: meta.activeEditorDeviceId, state: realtimeState, requestingEdit, revision: meta.revision, onRequest: () => realtime?.send('request_edit'), onCancelRequest: () => realtime?.send('cancel_edit_request'), onGrant: grantEditor }) : undefined);
 </script>
 
 <svelte:head><meta name="robots" content="noindex,nofollow" /></svelte:head>
 
 {#if project && meta && device}
-	{#if isAdmin}
-		<EditorView {project} {saveState} {globalPalettes} {editable} {collaboration} onChange={changeProject} onBack={leave} onSaveNow={flushSave} onCreateGlobalPalette={addGlobalPalette} onDeleteGlobalPalette={removeGlobalPalette} onSourceImageChange={sourceChanged} />
-	{:else}
-		<PlayerEditorView {project} {saveState} {globalPalettes} {editable} {collaboration} onChange={changeProject} onBack={leave} onSaveNow={flushSave} onCreateGlobalPalette={addGlobalPalette} onDeleteGlobalPalette={removeGlobalPalette} onSourceImageChange={sourceChanged} />
-	{/if}
+	<EditorView {project} {saveState} {globalPalettes} {editable} onChange={changeProject} onBack={leave} onSaveNow={flushSave} onCreateGlobalPalette={addGlobalPalette} onDeleteGlobalPalette={removeGlobalPalette} onSourceImageChange={sourceChanged} collaboration={{ participants, deviceId: device.id, ownerDeviceId: meta.ownerDeviceId, activeEditorDeviceId: meta.activeEditorDeviceId, state: realtimeState, requestingEdit, revision: meta.revision, onRequest: () => realtime?.send('request_edit'), onCancelRequest: () => realtime?.send('cancel_edit_request'), onGrant: grantEditor }} />
 {:else if deleted && device}
-	<main class="status-card"><img src="/mivubi-logo.png" alt="" /><h1>Proyek berada di tempat sampah</h1><p>Data akan dihapus permanen {deleted.purgeAfter ? new Date(deleted.purgeAfter).toLocaleString('id-ID') : 'dalam tujuh hari'}.</p>{#if deleted.ownerDeviceId === device.id}<button onclick={restore}>Pulihkan proyek</button>{/if}<a href="/">Kembali ke proyek</a></main>
+	<main class="status-card"><img src="/mivubi-logo.png" alt="" /><h1>Proyek berada di tempat sampah</h1><p>Data akan dihapus permanen {deleted.purgeAfter ? new Date(deleted.purgeAfter).toLocaleString('id-ID') : 'dalam tujuh hari'}.</p>{#if deleted.ownerDeviceId === device.id}<button onclick={restore}>Pulihkan proyek</button>{/if}<a href="/">Kembali ke dashboard</a></main>
 {:else}
-	<main class="status-card"><img src="/mivubi-logo.png" alt="" /><h1>Memuat proyek…</h1>{#if error}<p class="error">{error}</p><a href="/">Kembali ke proyek</a>{/if}</main>
+	<main class="status-card"><img src="/mivubi-logo.png" alt="" /><h1>Memuat proyek cloud…</h1>{#if error}<p class="error">{error}</p><a href="/">Kembali ke dashboard</a>{/if}</main>
 {/if}
 
 {#if error && project}<div class="root-error" role="alert"><span>{error}</span><button onclick={() => (error = null)}>×</button></div>{/if}
