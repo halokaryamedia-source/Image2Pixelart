@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import ProjectHomeView from '$lib/components/ProjectHomeView.svelte';
+	import HomeView from '$lib/components/HomeView.svelte';
 	import { createCloudProject, deleteCloudProject, listCloudProjects, registerDevice } from '$lib/cloud/api';
 	import { getDeviceIdentity, updateDeviceDisplayName } from '$lib/cloud/device';
+	import { setPendingUpload } from '$lib/cloud/pending-upload';
 	import type { CloudProjectSummary, DeviceIdentity } from '$lib/cloud/types';
-	import { deserializeProject } from '$lib/project';
+	import { convertProjectImage } from '$lib/image-project';
+	import { createProject, deserializeProject } from '$lib/project';
 
 	let projects = $state<CloudProjectSummary[]>([]);
 	let device = $state<DeviceIdentity | null>(null);
@@ -16,61 +18,56 @@
 
 	async function initialize() {
 		try {
-			device = getDeviceIdentity();
-			await registerDevice(device);
+			device = getDeviceIdentity(); await registerDevice(device);
 			projects = (await listCloudProjects(device)).projects;
-		} catch (caught) {
-			error = caught instanceof Error ? caught.message : 'Proyek belum dapat dimuat.';
-		} finally {
-			ready = true;
-		}
+		} catch (caught) { error = caught instanceof Error ? caught.message : 'Cloud belum dapat dihubungkan.'; }
+		finally { ready = true; }
+	}
+
+	async function createNew(input: { name: string; widthMm: number; heightMm: number; cellMm: number; mode: 'image' | 'blank'; file?: File }) {
+		if (!device) throw new Error('Perangkat belum siap.');
+		try {
+			let project = createProject(input);
+			if (input.mode === 'image') {
+				if (!input.file) throw new Error('Pilih gambar sumber terlebih dahulu.');
+				project = await convertProjectImage(project, input.file, { suggestPalette: true, applyPalette: true, applyCells: true, replaceSource: true });
+			}
+			await createCloudProject(device, project);
+			if (input.file && project.sourceImage) {
+				setPendingUpload(project.id, { file: input.file, width: project.sourceImage.width, height: project.sourceImage.height });
+			}
+			await goto(`/project/${project.id}`);
+		} catch (caught) { error = caught instanceof Error ? caught.message : 'Proyek cloud gagal dibuat.'; }
 	}
 
 	async function removeProject(id: string) {
 		if (!device) return;
-		try {
-			await deleteCloudProject(device, id);
-			projects = (await listCloudProjects(device)).projects;
-		} catch (caught) {
-			error = caught instanceof Error ? caught.message : 'Proyek gagal dihapus.';
-		}
+		try { await deleteCloudProject(device, id); projects = (await listCloudProjects(device)).projects; }
+		catch (caught) { error = caught instanceof Error ? caught.message : 'Proyek gagal dihapus.'; }
 	}
 
 	async function importProject(file: File) {
 		if (!device) return;
 		try {
 			if (file.size > 50 * 1024 * 1024) throw new Error('File proyek melebihi batas 50 MB.');
-			const imported = deserializeProject(await file.text());
-			const now = new Date().toISOString();
+			const imported = deserializeProject(await file.text()); const now = new Date().toISOString();
 			const project = { ...imported, id: crypto.randomUUID(), name: `${imported.name} (impor)`, createdAt: now, updatedAt: now };
-			await createCloudProject(device, project);
-			await goto(`/project/${project.id}`);
-		} catch (caught) {
-			error = caught instanceof Error ? caught.message : 'File proyek tidak dapat dibuka.';
-		}
+			await createCloudProject(device, project); await goto(`/project/${project.id}`);
+		} catch (caught) { error = caught instanceof Error ? caught.message : 'File proyek tidak dapat diimpor.'; }
 	}
 
 	async function renameDevice() {
 		if (!device) return;
-		const name = prompt('Nama yang ditampilkan ketika bekerja bersama:', device.displayName);
+		const name = prompt('Nama yang ditampilkan pada daftar pengguna aktif:', device.displayName);
 		if (!name?.trim()) return;
-		device = updateDeviceDisplayName(device, name);
-		await registerDevice(device);
+		device = updateDeviceDisplayName(device, name); await registerDevice(device);
 	}
 </script>
 
 {#if device}
-	<ProjectHomeView
-		{projects}
-		{ready}
-		deviceName={device.displayName}
-		onOpen={(project) => goto(`/project/${project.id}`)}
-		onDelete={removeProject}
-		onImport={importProject}
-		onRenameDevice={renameDevice}
-	/>
+	<HomeView {projects} {ready} deviceName={device.displayName} deviceId={device.id} onCreate={createNew} onOpen={(project) => goto(`/project/${project.id}`)} onDelete={removeProject} onImport={importProject} onRenameDevice={renameDevice} />
 {:else if !ready}
-	<div class="loading">Menyiapkan proyek…</div>
+	<div class="loading">Menyiapkan identitas perangkat…</div>
 {/if}
 
 {#if error}<div class="root-error" role="alert"><span>{error}</span><button onclick={() => (error = null)}>×</button></div>{/if}
