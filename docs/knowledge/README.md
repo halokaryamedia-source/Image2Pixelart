@@ -17,10 +17,13 @@ implementation-map.md
 current-validation.md
 → durable proof interpretation and proof ceilings
 
+frontend-reference-inventory.md
+→ current UI/reference catalog + authority classification
+
 decisions/
 → material durable decisions only
 ```
 
 Current source outranks stale continuity. Git history owns ordinary historical detail.
 
-Do not create parallel roadmaps, review archives, status systems, or duplicate owner maps unless a distinct current responsibility is proven.
+Do not create parallel roadmaps, review archives, status systems, duplicate owner maps, or separate UI-reference catalogs unless a distinct current responsibility is proven.

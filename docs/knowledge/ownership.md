@@ -17,6 +17,7 @@ Status: current canonical responsibility map
 | Active continuation | `docs/knowledge/next-action.md` |
 | Code hot-path routing | `docs/knowledge/implementation-map.md` |
 | Proof interpretation | `docs/knowledge/current-validation.md` |
+| Frontend reference classification/routing | `docs/knowledge/frontend-reference-inventory.md` |
 | Material decisions | `docs/knowledge/decisions/` |
 | Home/dashboard orchestration | `src/routes/+page.svelte` + `src/lib/components/HomeView.svelte` |
 | Project editor orchestration | `src/routes/project/[id]/+page.svelte` + `src/lib/components/EditorView.svelte` |
@@ -34,7 +35,7 @@ Status: current canonical responsibility map
 | Database schema | `db/migrations/` |
 | Realtime Worker | `realtime/src/index.ts` + `realtime/wrangler.jsonc` |
 | Static repository contract | `scripts/verify-repository.mjs` |
-| Reference/design artifacts | existing `docs/MIVUBI-UI-UX-Redesign/`, `docs/building/` |
+| Raw reference/design artifacts | existing `docs/MIVUBI-UI-UX-Redesign/`, `docs/building/` |
 
 ## Rule
 
