@@ -1,0 +1,276 @@
+# UI Language Contract
+
+Status: agreed language and terminology rules for UI planning, copy cleanup, regeneration, and owner handoff
+
+## Purpose
+
+This document defines how language should be handled while the original MIVUBI UI is being cleaned up.
+
+It is intentionally separate from:
+
+- `original-ui-baseline.md` — factual record of the original upstream UI.
+- `ui-preservation-contract.md` — mandatory visual preservation rules.
+- future UI simplification proposals — structural/visibility/workflow changes that have not yet been approved.
+
+Language cleanup does **not** authorize visual redesign. All icons, glyphs, SVGs, assets, fonts, colors, component styling, states, and visual identity remain governed by `ui-preservation-contract.md`.
+
+---
+
+# 1. Primary language rule
+
+The UI does **not** need to be forced into 100% Indonesian.
+
+Use Indonesian when the result is natural, familiar, and clear.
+
+Keep the original/common English term when an Indonesian translation would sound:
+
+- awkward
+- overly formal
+- uncommon in creative/software applications
+- harder to understand
+- translated only for the sake of translation
+
+The goal is **natural, clear product language**, not language purity.
+
+> If the Indonesian wording feels forced, keep the familiar original English term.
+
+Do not alternate between multiple terms for the same concept without a real contextual reason.
+
+---
+
+# 2. Tool naming rule
+
+Drawing/editing tool names stay in **English**.
+
+The agreed tool labels are:
+
+| Original UI ID | Exact icon from original source | Final tool label | Shortcut |
+| --- | --- | --- | --- |
+| `E-T01` | `⌖` | `Eyedropper` | `I` |
+| `E-T02` | `✎` | `Pencil` | `P` |
+| `E-T03` | `◩` | `Fill` | `F` |
+| `E-T04` | `◇` | `Eraser` | `E` |
+| `E-T05` | `⬚` | `Select` | `S` |
+| `E-T06` | `✣` | `Pan` | `Space` temporary pan |
+
+Important:
+
+- only the visible terminology is being standardized here
+- icons remain **exactly** the original icons
+- shortcuts remain unchanged
+- tool behavior remains unchanged
+- do not substitute a different icon library or similar-looking glyph
+
+---
+
+# 3. Agreed core terminology
+
+Use the following terminology as the current language baseline.
+
+| Concept | Preferred UI term | Note |
+| --- | --- | --- |
+| project | `Proyek` | natural Indonesian |
+| editor | `Editor` | common software term |
+| canvas | `Canvas` | keep English; do not force `Kanvas` |
+| grid | `Grid` | keep English |
+| tile | `Tile` | keep English |
+| palette | `Palet` | natural Indonesian |
+| color | `Warna` | natural Indonesian |
+| source image | `Gambar sumber` | clear Indonesian |
+| reference | `Referensi` | natural Indonesian |
+| preview | `Preview` | keep familiar software term; do not force `Pratinjau` |
+| properties | `Properti` | natural/common UI term |
+| detail | `Detail` | natural/common UI term |
+| library | `Library` | keep familiar software term |
+| palette library | `Library Palet` | preferred over forced `Koleksi palet` |
+| shortcut | `Shortcut` | keep familiar software term |
+| keyboard shortcuts | `Keyboard Shortcuts` | preferred over forced `Pintasan keyboard` |
+| export | `Ekspor` | natural Indonesian |
+| blueprint | `Blueprint` | keep production term |
+| owner | `Pemilik` | natural Indonesian in role/status copy |
+| editor role | `Editor` | keep common role term |
+| viewer | `Viewer` | keep common role term; do not force `Hanya lihat` |
+| cloud | `Cloud` | keep technical/product term |
+| link | `Link` | preferred over forced `tautan` in compact product UI |
+| HEX | `HEX` | technical standard; never translate |
+| PNG / PDF / CSV | exact format names | never translate format names |
+
+## Device / Perangkat
+
+`Device` and `Perangkat` may be chosen contextually instead of forcing one translation everywhere.
+
+Guideline:
+
+- compact technical label may use `Device`
+- natural explanatory sentence may use `perangkat`
+- do not mix both words inside the same short control or status unless needed for clarity
+
+This term can be tightened later during page-by-page copy review.
+
+---
+
+# 4. Terms that should not be translated mechanically
+
+Avoid translations that are technically correct but feel unnatural in this application.
+
+Current examples:
+
+| Avoid forced wording | Prefer |
+| --- | --- |
+| `Pratinjau` | `Preview` |
+| `Kanvas` | `Canvas` |
+| `Koleksi palet` | `Library Palet` |
+| `Pintasan keyboard` | `Keyboard Shortcuts` |
+| `Hanya lihat` as a role | `Viewer` |
+| `Salin tautan` | `Salin link` |
+| `Sesuaikan kanvas` when referring to the familiar view action | `Fit Canvas` or the exact approved contextual copy |
+
+These examples establish the principle. They do not authorize unrelated copy changes.
+
+---
+
+# 5. Indonesian wording that remains natural
+
+Use Indonesian normally where it is clearer and does not sound forced.
+
+Examples:
+
+- `Nama`
+- `Gambar sumber`
+- `Jumlah warna`
+- `Ukuran`
+- `Tambah warna`
+- `Hapus warna`
+- `Simpan`
+- `Batal`
+- `Perbarui`
+- `Minta akses edit`
+- `Terhubung`
+- `Gagal simpan`
+- `Properti`
+- `Referensi`
+- `Ekspor`
+
+The presence of English product terms does not mean the entire sentence should become English.
+
+---
+
+# 6. Mixed-language sentence rule
+
+Mixed Indonesian/English copy is acceptable when the English word is the natural product term.
+
+Good pattern:
+
+```text
+Perbarui grid dari gambar
+Buka Library Palet
+Fit Canvas
+Salin link
+Minta akses edit
+```
+
+Avoid awkward half-translations where both words are unfamiliar or redundant.
+
+The sentence should read naturally to an Indonesian user familiar with creative/software tools.
+
+---
+
+# 7. Technical format and data labels
+
+Never translate or creatively rename standardized technical values.
+
+Preserve:
+
+- `HEX`
+- `PNG`
+- `PDF`
+- `CSV`
+- file extensions
+- numeric dimensions
+- coordinates
+- keyboard keys
+- shortcut notation
+
+Examples:
+
+```text
+#000000
+PNG + grid
+PDF blueprint
+CSV material
+Ctrl/Cmd + Z
+X 21 · Y 8
+```
+
+A later page-by-page copy decision may refine the surrounding Indonesian words, but the technical token itself stays exact.
+
+---
+
+# 8. Copy consistency rule
+
+Once a term is approved for one concept, reuse it consistently across:
+
+- Home
+- Editor
+- tabs
+- panels
+- modal headings
+- tooltips
+- empty states
+- error/success states
+- collaboration UI
+- export UI
+- keyboard help
+
+Do not introduce synonyms simply to make copy look varied.
+
+Examples:
+
+- if the concept is called `Canvas`, do not call the same concept `Kanvas` elsewhere
+- if the role is `Viewer`, do not alternate with `Hanya lihat`
+- if the surface is `Library Palet`, do not alternately call it `Koleksi Palet`
+
+---
+
+# 9. Relationship to the original UI baseline
+
+`original-ui-baseline.md` remains unchanged as the factual record of what the upstream UI originally said.
+
+This language contract is the **agreed language direction** for future cleanup.
+
+When reviewing a specific UI element, use this structure:
+
+```text
+UI ID: E-T01
+Original copy: Pipet
+Approved terminology: Eyedropper
+Icon: KEEP EXACT ORIGINAL (`⌖`)
+Function: KEEP
+Visual treatment: KEEP
+```
+
+For ordinary copy:
+
+```text
+UI ID: ...
+Original copy: ...
+Proposed copy: ...
+Reason: clarity / consistency / natural terminology
+Visual: KEEP EXACT ORIGINAL
+Function: KEEP unless separately approved
+```
+
+---
+
+# 10. Decision boundary
+
+This document records language rules already agreed for the cleanup process.
+
+It does **not** mean every original string has already been rewritten or approved.
+
+Remaining copy must be reviewed page by page:
+
+1. Home / Project Dashboard
+2. Project Editor
+
+For each string, preserve the existing UI structure and visual identity unless a separate structural change is explicitly approved.
