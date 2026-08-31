@@ -65,8 +65,6 @@
 				{#if fileError}<p class="form-error" role="alert">{fileError}</p>{/if}
 			{/if}
 			<label><span>Nama proyek</span><input bind:value={name} maxlength="200" /></label>
-			<div class="field-grid"><label><span>Lebar</span><div class="unit-input"><input type="number" bind:value={widthCm} min="0.1" max="100000" step="0.1" /><b>cm</b></div></label><label><span>Tinggi</span><div class="unit-input"><input type="number" bind:value={heightCm} min="0.1" max="100000" step="0.1" /><b>cm</b></div></label></div>
-			<label><span>Ukuran tile (persegi)</span><div class="unit-input"><input type="number" bind:value={cellCm} min="0.1" max="100000" step="0.1" /><b>cm</b></div></label>
 			<div class:invalid={!validation.valid} class="grid-result"><span><b>▦</b><strong>{validation.valid ? `${validation.columns} × ${validation.rows}` : '—'}<small>grid</small></strong></span><span><b>⠿</b><strong>{validation.valid ? validation.total.toLocaleString('id-ID') : '—'}<small>tile</small></strong></span><span><b>▥</b><strong>{cellCm} cm<small>per tile</small></strong></span></div>
 			{#if !validation.valid}<p class="form-error">{validation.reason}{#if validation.suggestionsCm.length} Coba {validation.suggestionsCm.join(', ')} cm.{/if}</p>{/if}
 			<button class="primary-button" type="submit" disabled={!canSubmit}>{creating ? 'Menganalisis gambar…' : 'Buat & buka editor'} <span>→</span></button>
