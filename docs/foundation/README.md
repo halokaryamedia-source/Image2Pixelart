@@ -19,6 +19,9 @@ Read only the owner that can materially change the current decision.
 
 04-deployment-operations.md
 → environment/configuration ownership and external mutation boundaries
+
+05-ui-design-system.md
+→ durable Home/Editor visual hierarchy, reference decisions, UI roles, density, states, canvas presentation, adaptive behavior, motion, and accessibility direction
 ```
 
 Current source and tests own implementation details. Foundation should not become a line-by-line duplicate of source.
