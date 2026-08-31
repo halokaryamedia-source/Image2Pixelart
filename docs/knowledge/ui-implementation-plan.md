@@ -1,196 +1,69 @@
 # UI Implementation Plan
 
-Status: current player-first sequence
+Status: player-first implementation applied at source/static level
 
-This plan preserves the current MIVUBI visual style and changes only role separation, information hierarchy, default state, wording, placement, and progressive disclosure.
+The current MIVUBI visual style remains unchanged. The implementation changes role separation, hierarchy, wording, default visibility, and progressive disclosure.
 
-Durable direction: `docs/foundation/05-ui-design-system.md`.
-Current evidence: `docs/knowledge/ui-audit.md`.
+## Completed
 
-## Current progress
+### Admin structural authority
 
-Completed at source/static level:
+- project `owner` is now the project Admin authority;
+- width/height/tile/columns/rows changes are rejected server-side for non-owner editors;
+- Admin configuration is therefore not presentation-only.
 
-- Home infrastructure wording cleanup;
-- Editor default workspace changed to canvas-first (`left=false`, `right=false`, `quick=true`);
-- collaboration UI hidden during normal solo editable work and stripped of revision/device-ID presentation.
+### Player Home
 
-Automatic CI remains deferred. Local Svelte/browser proof remains required when available before claiming rendered completion.
+- Home is now a project launcher;
+- project cards show fixed physical dimensions read-only;
+- CTA is `Upload gambar` when no source exists and `Lanjutkan editor` otherwise;
+- project creation dimensions moved into a collapsed `Buat proyek · Admin` surface;
+- legacy `HomeView.svelte` was retired in favor of `ProjectHomeView.svelte`.
 
-# New sequence
-
-## Phase 0 — define real Admin capability boundary
-
-Goal:
-
-- establish how the application knows a user is Admin;
-- do not infer `owner === admin` without explicit approval;
-- provide the correct owner for canvas width/height/tile configuration.
-
-This is required before removing configuration capability from Player UI.
-
-Affected areas may include project permission/data/API routing in addition to UI. Treat it as architecture, not CSS hiding.
-
-## Phase 1 — Player Home becomes project launcher
-
-Goal:
+### Player image flow
 
 ```text
-project card
-→ read-only physical summary
-→ Upload image / Continue
+open empty project
+→ Upload gambar OR Mulai build kosong
+→ Atur gambar
+→ Isi canvas / Tampilkan semua
+→ crop/reposition
+→ Gunakan gambar
+→ pixel result + palette generated automatically
 ```
 
-Remove width/height/tile editing from the Player path once Admin configuration exists.
+### Player Editor
 
-Preserve the same Home card/button/input visual language.
+- canvas-first default remains active;
+- left/right panels closed, quick palette visible;
+- default visible tools are Pensil/Hapus/Geser;
+- Pipet/Isi/Pilih appear through `Alat lainnya`;
+- structural `Properti` tab and canvas resize entry are not exposed in Player shell;
+- advanced palette/reconstruction capability remains in contextual panels;
+- collaboration is contextual rather than permanent;
+- save wording is simple;
+- `Selesai` offers Panduan Build and Gambar Pixel first, with advanced exports under `Export lainnya`.
 
-Admin configuration moves to the explicit Admin surface rather than being deleted.
+### Admin Editor
 
-## Phase 2 — image setup flow
+Project owner continues to receive the full existing `EditorView` workbench with the same MIVUBI style and structural configuration capability.
 
-Goal:
+## Remaining proof
 
-```text
-Upload image
-→ position/crop
-→ continue
-```
+Automatic CI remains deferred by explicit project direction.
 
-Default Player controls:
+Before claiming final runtime/visual completion, obtain when a LOCAL_CODE/LIVE_BROWSER environment is available:
 
-- image preview;
-- drag/reposition;
-- `Isi canvas` / `Tampilkan semua`;
-- Reset;
-- clear continue/apply action.
+1. `npm run check`;
+2. targeted tests / `npm test` for affected contracts where available;
+3. browser inspection of Home launcher, Player upload/crop flow, Player Editor basic/advanced tools, Admin Editor, and Finish dialog;
+4. server integration proof that a non-owner active editor receives 403 when attempting structural canvas changes.
 
-Detailed zoom/crop controls become secondary when not needed.
+Do not reactivate CI solely for this proof.
 
-## Phase 3 — pixel result / reconstruction simplification
+## Future refinement only if evidence requires it
 
-Goal:
-
-```text
-Hasil pixel
-→ Gunakan hasil
-→ Perbaiki hasil
-```
-
-Primary Player wording avoids implementation jargon.
-
-Advanced reconstruction remains behind `Perbaiki hasil` / `Pengaturan lainnya`.
-
-Suggested terminology:
-
-```text
-Contour → Bentuk tegas
-Photo → Detail halus
-Suggestion → Saran warna
-Raster ulang → Buat ulang hasil
-```
-
-Do not change image-processing behavior unless a separate functional requirement exists.
-
-## Phase 4 — basic Editor tools
-
-Goal:
-
-Primary visible tools:
-
-```text
-Pensil
-Hapus
-Geser
-```
-
-Secondary `Alat lainnya`:
-
-```text
-Isi
-Pilih
-Pipet
-```
-
-Keep all current tool behavior and shortcuts.
-
-## Phase 5 — Player color workflow
-
-Goal:
-
-```text
-quick palette
-→ choose active color
-
-Kelola warna
-→ detailed palette panel/library
-```
-
-Right panel stays contextual/closed by default.
-
-Do not remove HEX/name/lock/delete/global-library capability.
-
-## Phase 6 — Header + save + collaboration simplification
-
-Already started through contextual collaboration presentation.
-
-Remaining goal:
-
-- project identity + read-only dimensions remain easy to scan;
-- save state uses simple Player language;
-- low-frequency panel/help controls are visually quieter;
-- collaboration appears only when relevant;
-- no revision/device UUID/provider terminology in normal Player UI.
-
-## Phase 7 — Finish / Export
-
-Goal:
-
-Primary task-oriented action:
-
-```text
-Selesai / Ekspor
-```
-
-Then:
-
-```text
-Panduan build
-Gambar pixel
-Export lainnya
-```
-
-Keep CSV/raw project formats under advanced export rather than deleting them.
-
-## Phase 8 — Admin configuration UI
-
-Goal:
-
-Admin-only project configuration with the same MIVUBI visual language:
-
-- width;
-- height;
-- tile size;
-- resulting grid;
-- other approved project-level settings.
-
-Player sees these values read-only.
-
-The authorization boundary must be real, not presentation-only.
-
-# Execution rule
-
-Implement one bounded phase/slice at a time.
-
-```text
-explicit user direction
-→ development-brief
-→ UI Foundation
-→ correct product/permission owner
-→ smallest complete change
-→ Svelte/static proof
-→ browser/accessibility proof when claimed
-→ STOP
-```
-
-Do not visually restyle the product while simplifying it.
+- further simplify wording inside the deliberately advanced reconstruction panel;
+- tune Player shell placement at constrained widths after real browser inspection;
+- refine icon consistency without replacing the visual system;
+- add repeatable E2E only after critical flows earn that maintenance responsibility.
