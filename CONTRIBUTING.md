@@ -48,6 +48,8 @@ Run the Worker and SvelteKit application in separate terminals.
 
 ## Verification
 
+Automatic GitHub Actions CI is intentionally **deferred during active development**. Run only the local proof that can materially falsify the current change.
+
 Repository/governance only:
 
 ```sh
@@ -78,7 +80,7 @@ Production build:
 npm run build
 ```
 
-Full deterministic application gate:
+Full deterministic application gate when actually warranted:
 
 ```sh
 npm run verify:application
@@ -99,7 +101,7 @@ When `.svelte` or SvelteKit behavior changes:
 - use current declared Svelte/SvelteKit versions;
 - prefer modern Svelte 5/runes patterns used by the project;
 - do not mechanically modernize unrelated source;
-- run `npm run check`;
+- run `npm run check` when static Svelte proof is material;
 - run build when public/runtime compatibility can be affected;
 - obtain actual browser evidence for interaction/visual claims.
 
@@ -140,16 +142,6 @@ Preferred format:
 
 ```text
 <type>(<optional-scope>): <concise logical outcome>
-```
-
-Examples:
-
-```text
-fix(converter): preserve transparent cells in contour mode
-feat(editor): add selection fill workflow
-fix(realtime): reject stale editor epoch updates
-docs(repo): establish portable development governance
-ci(app): verify Svelte and Worker builds
 ```
 
 Do not create checkpoint commits, transfer experiments, temporary workflows, placeholder files, or one commit per file for one logical change.

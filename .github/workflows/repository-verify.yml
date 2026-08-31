@@ -1,77 +1,17 @@
-name: Repository Verify
+name: Repository Verify (Deferred)
+
+# Automatic CI is intentionally deferred during active development.
+# Re-enable push/pull_request triggers only with explicit repository-owner approval.
 
 on:
-  push:
-    paths:
-      - "AGENTS.md"
-      - "GITHUB_RULES.md"
-      - "CONTEXT.md"
-      - "CONTRIBUTING.md"
-      - "SECURITY.md"
-      - "CHANGELOG.md"
-      - "README.md"
-      - ".editorconfig"
-      - ".gitattributes"
-      - ".gitignore"
-      - ".env.example"
-      - ".github/CODEOWNERS"
-      - ".github/PULL_REQUEST_TEMPLATE.md"
-      - ".github/workflows/repository-verify.yml"
-      - ".github/workflows/application-verify.yml"
-      - ".agents/skills/**"
-      - "docs/README.md"
-      - "docs/foundation/**"
-      - "docs/knowledge/**"
-      - "scripts/verify-repository.mjs"
-      - "package.json"
-      - "package-lock.json"
-      - "realtime/.dev.vars.example"
-      - "realtime/wrangler.jsonc"
-  pull_request:
-    paths:
-      - "AGENTS.md"
-      - "GITHUB_RULES.md"
-      - "CONTEXT.md"
-      - "CONTRIBUTING.md"
-      - "SECURITY.md"
-      - "CHANGELOG.md"
-      - "README.md"
-      - ".editorconfig"
-      - ".gitattributes"
-      - ".gitignore"
-      - ".env.example"
-      - ".github/**"
-      - ".agents/skills/**"
-      - "docs/README.md"
-      - "docs/foundation/**"
-      - "docs/knowledge/**"
-      - "scripts/verify-repository.mjs"
-      - "package.json"
-      - "package-lock.json"
-      - "realtime/.dev.vars.example"
-      - "realtime/wrangler.jsonc"
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Static repository contract
+  deferred:
+    if: ${{ false }}
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.12.0"
-
-      - name: Verify repository
-        run: npm run verify:repository
+      - run: echo "Repository CI is deferred. Use npm run verify:repository locally."

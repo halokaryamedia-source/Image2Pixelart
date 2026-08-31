@@ -2,6 +2,8 @@
 
 Status: durable proof interpretation
 
+Automatic GitHub Actions CI is currently **deferred during active development**. The commands below remain the canonical local verification contracts and may be run when their proof is materially needed. Do not re-enable automatic CI merely as ceremony.
+
 This file does not store per-run IDs or chronological CI results. Current run status belongs to the execution surface that produced it. This owner records what each proof can and cannot establish.
 
 ## Deterministic repository/application proof
