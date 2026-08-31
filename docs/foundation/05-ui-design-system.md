@@ -4,33 +4,21 @@ Status: current durable UI authority
 
 This document owns the durable visual and interaction direction for MIVUBI Mosaic Plan / Image2Pixelart.
 
-## Authority
-
-```text
-current explicit user direction
-→ this UI Foundation + affected product Foundation owners
-→ current MIVUBI visual language and approved brand assets
-→ current source + rendered behavior
-→ reference inventory / raw redesign references
-→ generic model taste last
-```
-
 ## Non-negotiable visual rule
 
-**Keep the current MIVUBI UI style.** User-friendly work is an information-architecture and presentation change, not a visual rebrand.
+**Keep the current MIVUBI UI style.** User-friendly work changes hierarchy, position, wording, default visibility, and progressive disclosure; it is not a visual rebrand.
 
-Preserve unless explicitly changed:
+Preserve:
 
-- warm ivory / near-white application surfaces;
-- current MIVUBI forest-green primary-action family;
+- warm ivory / near-white surfaces;
+- current MIVUBI forest-green primary family;
 - mustard/gold accent family;
-- charcoal/warm-neutral text and border language;
-- Poppins + Readex Pro typography relationship;
-- current restrained radius, border, shadow, panel, card, button, input, toolbar, palette, and canvas character;
-- current MIVUBI logo/brand treatment;
-- mosaic colors as content colors, separate from UI-state colors.
+- charcoal/warm-neutral text and borders;
+- Poppins + Readex Pro relationship;
+- current card, panel, radius, border, shadow, button, input, toolbar, palette, and canvas character;
+- current MIVUBI logo/brand treatment.
 
-Do **not** redesign the application into another product aesthetic. Do not introduce glassmorphism, gradient-heavy treatment, generic SaaS blue/purple, a new component kit, or a different design-system identity merely to make the UX simpler.
+Do not introduce a different component-kit identity, SaaS blue/purple, glassmorphism, or gradient-heavy redesign merely to simplify UX.
 
 ```text
 same visual language
@@ -38,142 +26,94 @@ same visual language
 + friendlier wording
 + better placement
 + progressive disclosure
-+ correct role boundary
++ correct Admin / Player responsibility
 ```
 
-# Product roles
+# Project roles
 
 ## Admin
 
-Admin owns project structure/configuration, including:
+The existing project `owner` is the **Admin authority for that project**.
 
-- physical canvas width/height;
+Admin owns structural configuration:
+
+- canvas width;
+- canvas height;
 - tile size;
-- resulting grid dimensions;
-- project configuration that defines the player's working canvas;
-- other project-level administrative controls when later approved.
+- resulting columns/rows;
+- project creation/deletion and other owner-level management already defined by source.
 
-These are configuration responsibilities, not ordinary Player choices.
+This is enforced by the project save endpoint. A non-owner active editor must not be able to change the structural canvas contract even by bypassing UI.
 
 ## Player
 
-Player's primary workflow is intentionally simple:
+A non-owner participant uses the Player experience.
+
+Primary workflow:
 
 ```text
 open project
-→ upload / replace image when needed
-→ position/crop image
-→ use generated pixel result
+→ upload image OR start build kosong
+→ position/crop image when uploaded
+→ automatic pixel result
 → edit/build mosaic
-→ finish/export through task-oriented actions
+→ finish/export
 ```
 
-Player may **read** project dimensions, grid size, and tile size as useful context, but must not be asked to choose or modify them.
+Player may read canvas/grid/tile information but cannot configure it.
 
-### Current architecture gap
+# Home / project launcher
 
-The repository currently has `owner / editor / viewer` collaboration roles but no explicit `admin` role.
+Home is primarily a **project launcher**.
 
-Therefore:
-
-- do not assume `owner === admin` without an explicit product/permission decision;
-- do not claim canvas/tile settings are securely Admin-only merely because a control is visually hidden;
-- current Player-facing canvas-size controls are transitional debt until a real Admin capability boundary exists;
-- UI work may simplify/hide advanced presentation, but authorization-sensitive Admin separation must be implemented by the correct architecture owner.
-
-# Player-first hierarchy
-
-The Player UI should answer these questions in order:
-
-1. Which project am I working on?
-2. Do I need to add or replace an image?
-3. Does the image sit correctly in the fixed canvas?
-4. Is the generated mosaic acceptable?
-5. What do I need to edit on the canvas?
-6. Which color is active?
-7. Am I saved / can I continue?
-8. How do I finish?
-
-The interface should not require the Player to first understand project configuration, storage architecture, realtime internals, palette-library architecture, or export file formats.
-
-# Player Home
-
-Player Home is a **project launcher**, not a canvas-configuration form.
-
-Primary hierarchy:
+Default hierarchy:
 
 ```text
-project list / assigned or available projects
-→ project status / simple physical summary
-→ Upload image or Continue
+available projects
+→ read-only physical summary
+→ Upload gambar / Lanjutkan editor
 ```
 
-Useful read-only project facts may include:
+Project cards may show:
 
 ```text
-240 × 120 cm
-48 × 24 grid
-5 cm tile
+physical width × height
+grid columns × rows
+tile size
+Admin / Bisa edit / Hanya lihat
 ```
 
-They are context, not inputs.
+Project structural creation remains available through a clearly secondary **Admin** panel. Width/height/tile inputs must not sit in the ordinary Player path.
 
-The current Home creation form with editable width/height/tile fields must not be treated as the final Player experience. Removal or relocation of that configuration requires the Admin boundary to be defined first.
-
-Infrastructure terms such as `Neon`, `R2`, `revision`, `realtime`, raw device IDs, and internal cloud architecture must not appear in ordinary Player hierarchy.
+Opening/importing a project file is a separate utility and must not be confused with uploading source artwork.
 
 # Player image setup
 
-When a project has no source image, lead with one obvious action:
+When a Player opens an empty project, the first decision is simple:
 
 ```text
-Tambahkan gambar
-→ Pilih gambar / drag-and-drop
+Upload gambar
+OR
+Mulai build kosong
 ```
 
-After upload, show a simple positioning step using the existing MIVUBI visual style.
-
-Default controls should focus on:
-
-- image preview;
-- drag/reposition;
-- `Isi canvas` / `Tampilkan semua`;
-- Reset when useful;
-- one obvious continue/apply action.
-
-Zoom percentages and detailed crop controls remain available only when needed. They should not dominate the first-use path.
-
-# Pixel-result / reconstruction UX
-
-The underlying reconstruction capability remains intact, but Player-facing language should be task-oriented.
-
-Prefer:
+When an image is selected:
 
 ```text
-Hasil pixel
-Buat ulang hasil
-Bentuk tegas
-Detail halus
-Jumlah warna
-Saran warna
+Atur gambar
+→ Isi canvas / Tampilkan semua
+→ drag/crop when applicable
+→ Gunakan gambar
+→ result generated automatically
 ```
 
-Avoid requiring the Player to understand implementation concepts such as:
-
-```text
-reconstruction pipeline
-raster ulang
-stale reconstruction
-suggestion vs active-palette architecture
-```
-
-Advanced reconstruction controls should use progressive disclosure such as `Perbaiki hasil` / `Pengaturan lainnya`.
+The Player must not first learn reconstruction-pipeline terminology.
 
 # Player Editor
 
 ## Default state
 
-The default Player Editor is **canvas-first**.
+Player Editor is canvas-first:
 
 ```text
 left panel  → closed by default
@@ -182,11 +122,11 @@ quick palette → visible
 canvas → dominant
 ```
 
-Side panels remain available and keep the same existing visual style; they simply appear when the Player asks for the related responsibility.
+The panels keep the existing MIVUBI styling and full capability but appear only when the Player asks for advanced responsibility.
 
-## Basic visible tools
+## Basic tools
 
-The long-term beginner default should prioritize common direct-edit actions:
+Default visible direct-edit tools:
 
 ```text
 Pensil
@@ -194,44 +134,74 @@ Hapus
 Geser
 ```
 
-Additional tools such as fill, selection, and picker remain supported and should move behind an `Alat lainnya` or equivalent contextual surface when that implementation slice is approved.
-
-Do not remove the underlying capability.
-
-## Color workflow
-
-For Player, color starts simple:
+Advanced tools remain available through `Alat lainnya`:
 
 ```text
-quick palette
-→ choose active color
+Pipet
+Isi area
+Pilih area
 ```
 
-Detailed HEX/name/lock/delete/save/global-library behavior belongs behind `Kelola warna` or another clearly secondary management surface.
+Capability is hidden progressively, not deleted.
 
-Quick palette remains the primary painting-speed surface. The detailed Palette panel is management, not something that must remain open permanently.
+## Color
 
-## Project dimensions
+Player starts with quick palette selection.
 
-Player sees canvas/grid/tile dimensions as read-only information.
+Detailed HEX/name/lock/delete/global-palette operations remain advanced palette-management responsibility and do not need to remain permanently visible.
 
-Player must not receive an editable `Atur ukuran canvas` path once the real Admin boundary is implemented.
+## Dimensions
 
-Until that role architecture exists, do not pretend the current editable path is securely Admin-only.
+Player sees a compact read-only summary. `Atur ukuran canvas` is Admin-only functionality and must not be exposed as a Player action.
+
+# Admin Editor
+
+Admin/project owner may use the full current `EditorView` workbench, including structural canvas configuration and advanced management.
+
+Admin UI still uses the same visual language as Player UI; role separation is about responsibility and cognitive load, not a different theme.
+
+# Reconstruction / result terminology
+
+Player-facing language should prefer task meaning:
+
+```text
+Hasil pixel
+Buat ulang hasil
+Bentuk tegas
+Detail halus
+Jumlah warna
+Saran warna
+Perbaiki hasil
+```
+
+Technical concepts such as raster pipeline, stale reconstruction, active-palette architecture, or implementation terminology belong in advanced/internal contexts only.
 
 # Collaboration
 
-Collaboration is contextual, not primary.
+Collaboration is contextual rather than permanently dominant.
 
-- when one Player is editing normally, collaboration chrome should stay out of the way;
-- show collaboration UI when another participant is present, edit access is relevant, or connection state requires attention;
-- use user language such as `Kamu mengedit`, `Hanya melihat`, `Minta akses edit`, `Koneksi terputus`;
-- do not show revision numbers or device UUIDs in ordinary Player UI;
-- permission/realtime semantics remain owned by the collaboration architecture.
+Show it when:
+
+- another participant is present;
+- the Player lacks edit access;
+- an edit request is active;
+- connection state requires attention.
+
+Player language:
+
+```text
+Kamu mengedit
+<Nama> mengedit
+Hanya melihat
+Minta akses edit
+Koneksi terputus
+```
+
+Do not expose raw revision numbers or device UUIDs in ordinary Player UI.
 
 # Save state
 
-Player-facing save states should be simple:
+Player-facing save states:
 
 ```text
 Menyimpan…
@@ -239,32 +209,28 @@ Tersimpan
 Gagal menyimpan
 ```
 
-Do not expose storage-provider or revision terminology unless the surface is explicitly diagnostic/admin-facing.
+Do not expose storage-provider or revision vocabulary in normal UI.
 
-# Finish / Export
+# Finish / export
 
-Player should make a **task decision before a file-format decision**.
-
-Primary direction:
+Player makes a task decision before a format decision:
 
 ```text
-Selesai / Ekspor
-→ Panduan build
-→ Gambar pixel
+Selesai
+→ Panduan Build
+→ Gambar Pixel
 → Export lainnya
 ```
 
-Advanced formats such as CSV matrices/material files and raw project files remain available under secondary/advanced export choices rather than competing in the primary header.
+Advanced PNG-grid, CSV, and project-file exports remain available under secondary disclosure.
 
-# Progressive disclosure rules
-
-Keep capability, reduce simultaneous cognitive load.
+# Progressive disclosure
 
 Default-visible Player concepts:
 
 ```text
 project
-image
+image/build choice
 canvas
 basic tools
 active color
@@ -281,7 +247,7 @@ palette management
 advanced tools
 panel customization
 collaboration management
-advanced export formats
+advanced exports
 keyboard shortcuts
 ```
 
@@ -291,53 +257,59 @@ Admin-only concepts:
 canvas width/height configuration
 tile size configuration
 grid-definition configuration
-administrative project settings
+owner-level project management
 ```
 
 # Visual system
 
-The current style remains the authority.
-
-Baseline semantic roles:
+Use current semantic roles rather than introducing a new theme:
 
 ```text
 primary text          → current --ink family
 muted/support text    → current --muted family
 primary action        → current --forest family
-warm application bg  → current ivory/yellow-50 family
+warm application bg  → current ivory/yellow family
 primary surface       → current warm near-white/paper family
-border/separator      → current warm neutral --line family
+border/separator      → current --line family
 accent/status         → current mustard/gold family
 danger/error          → current --danger family
 ```
 
-Typography:
+Typography and density:
 
 - preserve Poppins + Readex Pro roles;
-- 14 px is the normal explanatory/body baseline;
-- 12–13 px is acceptable for compact desktop controls;
-- 10–11 px is tertiary metadata only;
-- required instructions must not depend on 7–10 px microtype.
+- normal explanatory text ~14 px;
+- compact desktop controls 12–13 px where readable;
+- 10–11 px only for tertiary metadata;
+- simplify by grouping/hiding controls, not by shrinking important text;
+- retain the existing 8 px-oriented rhythm with small optical adjustments.
 
-Spacing/density:
+# Pixel/canvas correctness
 
-- retain the existing 8 px-oriented rhythm with 4 px optical adjustments;
-- simplify by grouping/hiding controls, not by making everything smaller;
-- editor may remain dense, but the first-use state must not present every capability simultaneously.
+Visual simplification must never alter physical/grid truth:
 
-# Reference policy
+- cells remain discrete;
+- pointer-to-cell mapping remains exact;
+- grid/ruler/selection overlays align with the canonical cell model;
+- palette swatches retain exact project HEX values;
+- Player presentation cannot mutate width/height/tile/grid.
 
-Reference 01/03 remain useful evidence for the existing MIVUBI style and layout vocabulary, but the newly approved **Player-first / Admin-configured** role model overrides earlier assumptions that Players create canvas dimensions themselves or must see the full workbench by default.
+# Accessibility
 
-Reference 04's canvas-dominance principle is now especially relevant to default Player Editor state, while its different visual architecture is **not** adopted as a style replacement.
+- preserve native semantics where practical;
+- keep visible focus;
+- do not rely on color alone for active/error/read-only state;
+- Player advanced disclosure must remain keyboard-reachable;
+- modal close/actions must be understandable;
+- canvas accessibility choices must preserve performance and exact cell semantics.
 
-# Completion boundary
+# Completion
 
-A UI simplification is successful only when:
+A UI simplification is complete only when:
 
-- the MIVUBI visual identity still clearly looks like the same application;
+- it still unmistakably looks like the same MIVUBI application;
 - Player can identify the next task with less explanation;
-- advanced capability remains discoverable rather than deleted;
-- Admin-only configuration is not mislabeled as Player functionality;
-- implementation details do not leak into ordinary Player wording;
-- browser proof is used when actual rendered hierarchy/interaction is claimed.
+- advanced capability remains discoverable;
+- Admin-only structure is enforced by source/server authority, not only hidden visually;
+- infrastructure details do not leak into ordinary Player wording;
+- rendered/browser proof is obtained before claiming final visual acceptance.
