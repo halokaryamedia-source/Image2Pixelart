@@ -17,10 +17,14 @@
 		"realtime:deploy": "wrangler deploy --config realtime/wrangler.jsonc",
 		"smoke:cloud": "node --env-file=.env.local scripts/smoke-cloud.mjs",
 		"r2:configure-cors": "node --env-file=.env.local scripts/configure-r2-cors.mjs",
+		"verify:repository": "node scripts/verify-repository.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"check:realtime": "tsc --noEmit -p realtime/tsconfig.json",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"verify:application": "npm test && npm run check && npm run check:realtime && npm run build",
+		"verify": "npm run verify:repository && npm run verify:application"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20260829.1",

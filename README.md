@@ -8,7 +8,7 @@ Identitas visual menggunakan logo resmi MIVUBI dan palet brand `#21302F`, `#005A
 
 - Canvas fisik dalam cm dengan presisi 0,1 cm, disimpan sebagai integer mm.
 - Validasi pembagian tanpa gap dan rekomendasi ukuran tile kompatibel.
-- Editor canvas dengan zoom, pan, ruler, grid overlay, pencil, drag paint, bucket fill, eyedropper, eraser, dan kontrol keyboard.
+- Editor canvas dengan zoom, pan, ruler, grid overlay, pencil, drag paint, bucket fill, eyedropper, eraser, selection, dan kontrol keyboard.
 - Canvas dimulai kosong; palet dapat ditambah lewat HEX atau dibuat sebagai suggestion langsung dari gambar.
 - Impor PNG/JPEG/WebP, visual crop drag/zoom, mode fit utuh, serta rekonstruksi Contour atau Photo di Web Worker.
 - Sel kosong tanpa tile, palet lokal 0–32 warna, edit HEX realtime, dan recreate canvas dari source image.
@@ -19,58 +19,106 @@ Identitas visual menggunakan logo resmi MIVUBI dan palet brand `#21302F`, `#005A
 
 Contoh utama `240 × 120 cm` dengan tile `5 cm` menghasilkan `48 × 24 = 1.152` sel.
 
+## Repository development policy
+
+Repository ini menyertakan governance development yang portable:
+
+- [`AGENTS.md`](AGENTS.md) — task/agent routing dan proof boundary.
+- [`GITHUB_RULES.md`](GITHUB_RULES.md) — disiplin GitHub, commit, transfer, retry, dan STOP.
+- [`CONTEXT.md`](CONTEXT.md) — orientasi produk/arsitektur stabil.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — workflow developer.
+- [`SECURITY.md`](SECURITY.md) — secrets, data, dan cloud boundary.
+- [`docs/foundation/`](docs/foundation/) — kontrak produk/arsitektur durable.
+- [`docs/knowledge/`](docs/knowledge/) — ownership, implementation map, validation, continuity.
+
+**Branch architecture dan GitHub Rulesets sengaja tidak ditentukan oleh paket ini.** Gunakan branch/ref dan protection policy dari repository tujuan. Jangan mengimpor asumsi `develop`, `Local`, atau `main` dari repo lain secara otomatis.
+
+Verifikasi repository:
+
+```sh
+npm run verify:repository
+```
+
+Verifikasi aplikasi deterministic:
+
+```sh
+npm run verify:application
+```
+
+`verify:application` menjalankan test, Svelte check, realtime TypeScript check, dan production build. Browser/cloud runtime tetap membutuhkan proof yang sesuai.
+
 ## Menjalankan lokal
 
 Gunakan Node.js 22.12 atau lebih baru.
 
+Salin template konfigurasi:
+
+```sh
+cp .env.example .env.local
+```
+
+Isi Neon/R2/realtime values yang diperlukan untuk environment lokal. Jangan commit `.env.local`.
+
+Install dan siapkan database yang memang ditujukan untuk development:
+
 ```sh
 npm install
 npm run db:migrate
+```
+
+Jalankan realtime Worker dan aplikasi pada terminal terpisah:
+
+```sh
 npm run realtime:dev
 npm run dev
 ```
 
-Salin `.env.example` menjadi `.env.local`, isi Neon/R2 dan secret internal, lalu jalankan realtime dan aplikasi pada terminal terpisah. Buka alamat yang ditampilkan Vite. Untuk verifikasi lengkap:
+Buka alamat yang ditampilkan Vite.
+
+Untuk verifikasi deterministic:
 
 ```sh
-npm test
-npm run check
-npm run build
+npm run verify
+```
+
+Untuk smoke integration cloud:
+
+```sh
 npm run smoke:cloud
 ```
 
-`smoke:cloud` membutuhkan kedua server lokal aktif; test membuat proyek dan objek R2 temporer lalu membersihkannya. Build memakai `@sveltejs/adapter-vercel`.
+`smoke:cloud` membutuhkan kedua server aktif dan cloud environment yang memang diizinkan untuk temporary test state. Test membuat proyek/device/objek R2 temporer lalu mencoba membersihkannya.
+
+Build memakai `@sveltejs/adapter-vercel`.
 
 ## Arsitektur cloud
 
 - Vercel menjalankan frontend SvelteKit dan seluruh `/api/*`.
 - Neon menyimpan device anonim, peserta, dokumen proyek, cells `BYTEA`, revision, lock editor, dan soft-delete tujuh hari.
-- R2 bucket private menyimpan satu gambar sumber aktif per proyek. Browser melakukan upload langsung memakai presigned `PUT` lima menit.
-- Worker/Durable Object di `realtime/` menangani presence dan live patch melalui WebSocket Hibernation; viewer idle tidak melakukan polling Neon atau R2.
-- ID dan secret perangkat tersimpan di `localStorage`. ID boleh dibagikan kepada admin; secret tidak boleh dibagikan.
+- R2 bucket private menyimpan satu gambar sumber aktif per proyek. Browser melakukan upload langsung memakai presigned `PUT`.
+- Worker/Durable Object di `realtime/` menangani presence dan live patch melalui WebSocket Hibernation; viewer idle tidak perlu polling Neon atau R2.
+- ID dan secret perangkat tersimpan di `localStorage`. ID dapat dipakai untuk administrasi/support; secret adalah credential dan tidak boleh dibagikan.
 
-API publik berada di `src/routes/api`. Migration idempotent berada di `db/migrations/001_cloud_projects.sql`.
+API publik berada di `src/routes/api`. Migration berada di `db/migrations/`.
 
-## Deployment
+## Deployment / operasi
 
-Production aktif:
+Production yang tercatat pada source saat ini:
 
 - Aplikasi: `https://mivubi-pixel-mosaic.vercel.app`
 - Realtime Worker: `https://mivubi-mosaic-realtime.mivubiteam.workers.dev`
 
-1. Jalankan migration Neon dengan `npm run db:migrate`.
-2. Isi environment Vercel dari `.env.example`; jangan menaruh secret dalam variable `PUBLIC_*`.
-3. Buat secret Worker dengan `wrangler secret put REALTIME_TOKEN_SECRET` dan `wrangler secret put REALTIME_INTERNAL_SECRET`, lalu samakan nilainya dengan Vercel.
-4. Tambahkan origin produksi ke `ALLOWED_ORIGINS` pada `realtime/wrangler.jsonc`, kemudian jalankan `npm run realtime:deploy`.
-5. Atur `REALTIME_HTTP_URL` Vercel ke URL Worker `https://…workers.dev`.
-6. Tambahkan origin produksi ke `R2_ALLOWED_ORIGINS`, lalu jalankan `npm run r2:configure-cors` dengan credential yang memiliki izin konfigurasi bucket.
-7. Deploy aplikasi ke Vercel. Cron harian `/api/maintenance/purge` menggunakan `CRON_SECRET` untuk menghapus proyek yang melewati masa soft-delete.
-
-Credential R2 object-only dapat mengunggah file tetapi tidak dapat mengubah CORS atau men-deploy Worker. Gunakan token deployment terpisah dengan izin minimum yang sesuai. Pemindahan owner secara manual dilakukan dengan:
+Operasi berikut **bukan** bagian otomatis dari development verification:
 
 ```sh
+npm run db:migrate
 npm run db:reassign-owner -- <project-id> <device-id-baru>
+npm run realtime:deploy
+npm run r2:configure-cors
+npm run smoke:cloud
 ```
+
+Gunakan hanya pada environment yang memang dituju dan dengan authorization yang sesuai. Detail ada di [`docs/foundation/04-deployment-operations.md`](docs/foundation/04-deployment-operations.md).
 
 ## Kontrak dan batas
 
@@ -80,6 +128,10 @@ npm run db:reassign-owner -- <project-id> <device-id-baru>
 - PDF adalah panduan pemasangan, bukan cetakan skala 1:1; halaman detail memuat maksimal 24 × 24 sel.
 - PNG dibatasi berdasarkan sisi dan total area bitmap untuk menjaga penggunaan memori browser.
 
+Kontrak durable image/grid berada di [`docs/foundation/02-image-grid-contract.md`](docs/foundation/02-image-grid-contract.md).
+
 ## Privasi dan pemulihan
 
-Proyek dapat dilihat oleh siapa pun yang mengetahui URL UUID-nya. Hanya perangkat editor aktif yang boleh menyimpan. Tidak ada email, akun, atau recovery link; jika localStorage pemilik hilang, admin harus memindahkan owner ke device ID baru. Proyek lokal versi lama tidak diunggah atau dihapus dan tidak ditampilkan pada dashboard cloud.
+Proyek dapat dilihat oleh siapa pun yang mengetahui URL UUID-nya sesuai model public-link saat ini. Hanya perangkat editor aktif yang boleh menyimpan. Tidak ada email, akun, atau recovery link; jika localStorage pemilik hilang, admin dapat memindahkan owner ke device ID baru melalui operasi administratif yang terkontrol.
+
+Source image tetap private di R2. Secrets, production data, dan deployment credentials mengikuti [`SECURITY.md`](SECURITY.md).

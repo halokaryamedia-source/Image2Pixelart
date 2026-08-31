@@ -1,0 +1,58 @@
+name: Application Verify
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "db/**"
+      - "realtime/**"
+      - "scripts/**"
+      - "static/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "vite.config.ts"
+      - "vercel.json"
+      - ".npmrc"
+  pull_request:
+    paths:
+      - "src/**"
+      - "db/**"
+      - "realtime/**"
+      - "scripts/**"
+      - "static/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "vite.config.ts"
+      - "vercel.json"
+      - ".npmrc"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Deterministic application gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.12.0"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify application
+        run: npm run verify:application

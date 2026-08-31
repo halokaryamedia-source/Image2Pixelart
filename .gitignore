@@ -1,6 +1,6 @@
 node_modules
 
-# Output
+# Output / generated
 .output
 .vercel
 .netlify
@@ -10,12 +10,14 @@ node_modules
 /dist
 /output
 /tmp
+/coverage
 
-# OS
+# Logs / OS
+*.log
 .DS_Store
 Thumbs.db
 
-# Env
+# Environment
 .env
 .env.*
 !.env.example
@@ -25,4 +27,3 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
-.env*
