@@ -64,7 +64,7 @@
 				</label>
 				{#if fileError}<p class="form-error" role="alert">{fileError}</p>{/if}
 			{/if}
-			<label><span>Nama proyek</span><input bind:value={name} maxlength="200" /></label>
+			<label><span>Nama</span><input bind:value={name} maxlength="200" /></label>
 			<div class:invalid={!validation.valid} class="grid-result"><span><b>▦</b><strong>{validation.valid ? `${validation.columns} × ${validation.rows}` : '—'}<small>grid</small></strong></span><span><b>⠿</b><strong>{validation.valid ? validation.total.toLocaleString('id-ID') : '—'}<small>tile</small></strong></span><span><b>▥</b><strong>{cellCm} cm<small>per tile</small></strong></span></div>
 			{#if !validation.valid}<p class="form-error">{validation.reason}{#if validation.suggestionsCm.length} Coba {validation.suggestionsCm.join(', ')} cm.{/if}</p>{/if}
 			<button class="primary-button" type="submit" disabled={!canSubmit}>{creating ? 'Menganalisis gambar…' : 'Buat & buka editor'} <span>→</span></button>
