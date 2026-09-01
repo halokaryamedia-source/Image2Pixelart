@@ -329,12 +329,12 @@ Intent:
 
 This is a copy decision only. Blank-Canvas behavior, preview rendering, layout, and styling remain unchanged unless separately approved.
 
-## 1.15 Approved Home saved-artwork label
+## 1.15 Approved Home saved-file label
 
-The saved-work section label is approved as:
+The saved-item section label is approved as:
 
 ```text
-Karya Tersimpan
+File Tersimpan
 ```
 
 It replaces the original visible label:
@@ -345,9 +345,9 @@ PROYEK CLOUD
 
 Intent:
 
-- tell the user directly what the section contains;
+- tell the user directly that the section contains saved files;
 - avoid exposing storage architecture as the main section name;
-- use `Karya` consistently for the user-facing artwork concept.
+- use `File` for stored/openable items so the object being managed is immediately clear.
 
 This does not remove or alter the underlying cloud storage/synchronization behavior. It is a user-facing copy decision only.
 
@@ -365,18 +365,18 @@ Reason:
 - it clearly communicates that the items below can be reopened and continued;
 - no rewrite is needed merely for stylistic variation.
 
-## 1.17 Approved Home saved-artwork count
+## 1.17 Approved Home saved-file count
 
-The saved-work count/status should use the pattern:
+The saved-file count/status should use the pattern:
 
 ```text
-{count} karya tersedia di perangkat ini
+{count} file tersedia di perangkat ini
 ```
 
 Example:
 
 ```text
-3 karya tersedia di perangkat ini
+3 file tersedia di perangkat ini
 ```
 
 It replaces the original pattern:
@@ -387,29 +387,238 @@ It replaces the original pattern:
 
 Intent:
 
-- use the user-facing term `karya` rather than `proyek` in this section;
+- use `file` for the stored items rather than the less-specific system term `proyek`;
 - keep the relationship to the current device explicit;
-- avoid generic wording such as `data`, which does not tell the user what is available.
+- avoid generic wording such as `data`, which does not identify what is available.
 
-## 1.18 Approved Home artwork-card summary
+## 1.18 Approved Home file-card summary
 
-The ordinary saved-artwork card summary should show only the basic artwork information:
+The ordinary saved-file card summary should show only the basic artwork information:
 
 ```text
 48 × 24 Grid · 8 warna
 ```
 
-Use the actual Grid dimensions and palette count for each artwork.
+Use the actual Grid dimensions and palette count for each file.
 
-Do **not** preview the collaboration/access role (`owner`, `editor`, `viewer`, `Pemilik`, or equivalent) in the ordinary artwork card summary.
+Do **not** preview the collaboration/access role (`owner`, `editor`, `viewer`, `Pemilik`, or equivalent) in the ordinary file card summary.
 
 Reason:
 
-- the role label is not needed to identify or continue the artwork;
+- the role label is not needed to identify or continue the file;
 - a standalone role preview is easy to misread and adds unnecessary complexity;
 - access/permission behavior may remain fully functional internally or in a dedicated collaboration surface without being shown in this card summary.
 
 This is a visibility/copy decision only. Do not remove the underlying role/access model or permissions from the implementation unless separately approved.
+
+## 1.19 Approved Home last-modified information
+
+The file card should show its modification date with the pattern:
+
+```text
+Terakhir diubah {date}
+```
+
+Example:
+
+```text
+Terakhir diubah 1 Sep 2026
+```
+
+This replaces the less explicit original pattern `Diubah {date}`.
+
+## 1.20 Approved Home continue button
+
+Keep the existing file-card action:
+
+```text
+Lanjutkan →
+```
+
+The exact original arrow and visual treatment remain unchanged.
+
+## 1.21 Approved Home trash visibility
+
+Files that have been moved to trash must **not** remain mixed into the ordinary `File Tersimpan` list.
+
+Therefore, the ordinary saved-file list should not show the original deleted-item states:
+
+```text
+Di tempat sampah
+Buka status →
+```
+
+If restore or permanent-delete management is needed, use a separate `Sampah` surface rather than mixing deleted files with active saved files.
+
+This is a visibility/workflow decision. It does not authorize removing the underlying `deletedAt`, restore-window, or trash data model.
+
+## 1.22 Approved Home delete-file action
+
+The file menu delete action is approved as:
+
+```text
+Hapus File
+```
+
+It replaces `Hapus proyek`.
+
+The action continues to move the file to trash rather than immediately deleting it permanently.
+
+## 1.23 Approved Home delete confirmation
+
+The confirmation message is approved as:
+
+```text
+Pindahkan file “Nama File” ke Sampah? File dapat dipulihkan selama 7 hari.
+```
+
+Use the actual file name in place of `Nama File`.
+
+Intent:
+
+- clearly state that the file moves to `Sampah`;
+- make the 7-day recovery window explicit;
+- avoid referring to the stored item as a `Karya` or `Proyek` in this file-management context.
+
+## 1.24 Approved Home saved-file loading status
+
+While the saved-file list is being prepared, use:
+
+```text
+Membuka daftar file tersimpan…
+```
+
+It replaces `Memuat proyek cloud…`.
+
+## 1.25 Approved Home saved-file empty state
+
+When there are no saved files, show only:
+
+```text
+Belum ada file tersimpan.
+```
+
+Do not expose backend/storage terminology in this message.
+
+## 1.26 Approved Home empty-state helper removal
+
+Remove the original secondary empty-state sentence:
+
+```text
+Proyek pertamamu akan muncul di sini dan tersimpan otomatis ke Neon.
+```
+
+Do not replace it with another sentence about files appearing or being saved automatically. The empty state is intentionally complete with only `Belum ada file tersimpan.`
+
+## 1.27 Approved Home image-processing state
+
+While the image-based creation flow is running, use:
+
+```text
+Memproses gambar…
+```
+
+It replaces `Menganalisis gambar…` because it more directly communicates that the image is currently being processed.
+
+## 1.28 Approved Home upload-format information
+
+Keep the existing upload-format and size information:
+
+```text
+PNG, JPG, WEBP · Maks. 20 MB
+```
+
+Technical format names remain exact.
+
+## 1.29 Approved Home selected-file information
+
+After a file is selected, keep the existing information pattern:
+
+```text
+{size} MB · klik untuk mengganti
+```
+
+Example:
+
+```text
+1.2 MB · klik untuk mengganti
+```
+
+The actual file size remains dynamic.
+
+## 1.30 Approved Home initial artwork name
+
+Do not prefill the `Nama Karya` field with the original example value `Mural lobby utama`.
+
+The field should begin empty and use the already approved placeholder:
+
+```text
+Beri nama karyamu
+```
+
+After an image is uploaded, the image file name may still be used automatically as the initial artwork name.
+
+## 1.31 Approved Home unsupported-format message
+
+The unsupported-format message is approved as:
+
+```text
+Gunakan Format File.
+```
+
+This is the exact approved visible wording for this state unless later revised.
+
+## 1.32 Approved Home oversized-file message
+
+The oversized-file message is approved as:
+
+```text
+Ukuran file melebihi 20 MB.
+```
+
+It replaces `Ukuran gambar melebihi 20 MB.` so the message refers directly to the uploaded file.
+
+## 1.33 Approved Home physical-size information
+
+Keep the physical dimensions visible in Preview, but present them strictly as informational reference rather than editable setup fields.
+
+Use the label:
+
+```text
+Ukuran Fisik
+```
+
+The existing physical dimension values remain visible on the Preview measurement guides, for example:
+
+```text
+240 cm × 120 cm
+```
+
+Requirements:
+
+- do not turn the Preview measurement values into inputs or controls;
+- do not imply that the user must configure the physical dimensions in the ordinary Home flow;
+- keep the measurement guides and original visual treatment unless separately approved.
+
+## 1.34 Approved Home image-preview guidance
+
+For the `Upload Gambar` path, use:
+
+```text
+Gambar akan diproses menjadi Pixel Art dengan palet 8 warna.
+```
+
+It replaces the original mixed/technical wording:
+
+```text
+Gambar akan dianalisis lokal dan dibuat menjadi suggestion 8 warna.
+```
+
+Intent:
+
+- describe the visible outcome directly;
+- avoid exposing implementation detail such as local analysis;
+- use the approved terms `Pixel Art` and `palet`.
 
 ---
 
@@ -444,7 +653,8 @@ Use the following terminology as the current language baseline.
 
 | Concept | Preferred UI term | Note |
 | --- | --- | --- |
-| project | `Proyek` | natural Indonesian |
+| project | `Proyek` | natural Indonesian where the project concept itself is intentionally exposed |
+| stored item | `File` | preferred for saved/open/delete item management on Home |
 | editor | `Editor` | common software term |
 | canvas | `Canvas` | keep English; do not force `Kanvas` |
 | grid | `Grid` | keep English; primary visible dimensional concept |
@@ -463,10 +673,10 @@ Use the following terminology as the current language baseline.
 | keyboard shortcuts | `Keyboard Shortcuts` | preferred over forced `Pintasan keyboard` |
 | export | `Ekspor` | natural Indonesian |
 | blueprint | `Blueprint` | keep production term |
-| owner | `Pemilik` | natural Indonesian in role/status copy |
+| owner | `Pemilik` | natural Indonesian when a dedicated role/status surface intentionally exposes it |
 | editor role | `Editor` | keep common role term |
 | viewer | `Viewer` | keep common role term; do not force `Hanya lihat` |
-| cloud | `Cloud` | keep technical/product term |
+| cloud | `Cloud` | keep technical/product term when the storage architecture itself must be exposed |
 | link | `Link` | preferred over forced `tautan` in compact product UI |
 | HEX | `HEX` | technical standard; never translate |
 | PNG / PDF / CSV | exact format names | never translate format names |
@@ -619,6 +829,7 @@ Examples:
 
 - if the concept is called `Canvas`, do not call the same concept `Kanvas` elsewhere
 - if the concept is called `Grid`, do not use `Pixel Art` to mean the Grid structure
+- if saved items are called `File` on Home, do not switch the same saved-item controls back to `Proyek` or `Karya`
 - if the role is `Viewer`, do not alternate with `Hanya lihat`
 - if the surface is `Library Palet`, do not alternately call it `Koleksi Palet`
 - do not reintroduce `Tile` statistics into ordinary user-facing UI without explicit approval
