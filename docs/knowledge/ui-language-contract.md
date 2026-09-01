@@ -196,6 +196,26 @@ Intent:
 
 This is a placeholder-copy decision only. Input behavior, styling, validation, layout, and data model remain unchanged unless separately approved.
 
+## 1.9 Approved Home grid-size information
+
+The ordinary Home creation summary should expose the Grid dimension directly as:
+
+```text
+▦ Ukuran Grid 48 × 24
+```
+
+Intent:
+
+- use `Ukuran Grid` instead of only `Grid` so the meaning of `48 × 24` is immediately clear;
+- show only the Grid dimension that matters to the user;
+- do not show the original total Tile count or per-Tile size information in the ordinary user-facing UI.
+
+Preservation requirements:
+
+- keep the exact original Grid icon `▦`;
+- preserve the existing visual treatment and information placement unless a separate visual change is explicitly approved;
+- internal dimensions or Tile-related implementation data may remain internally and are not removed by this copy/information decision.
+
 ---
 
 # 2. Tool naming rule
@@ -267,7 +287,7 @@ Keep these concepts separate:
 
 The original `1.152 Tile` value was only the total number of Grid cells (`48 × 24 = 1.152`). It is not a meaningful material or production count for the intended general-user workflow, so it should not be surfaced as a Tile statistic.
 
-Do not replace `1.152 Tile` with another redundant total-cell label unless a real user need is later approved. Showing `48 × 24 Grid` is sufficient when the Grid dimensions are the information that matters.
+Do not replace `1.152 Tile` with another redundant total-cell label unless a real user need is later approved. Showing `Ukuran Grid 48 × 24` is sufficient when the Grid dimensions are the information that matters.
 
 This is a user-facing information decision. Internal data fields or Admin configuration needed by the implementation are a separate concern and are not renamed or removed by this language contract unless separately approved.
 
