@@ -178,7 +178,23 @@ Intent:
 - stay consistent with the approved `Buat Karya Baru` wording;
 - do not shorten this field to `Nama`.
 
-This is a copy decision only. The field behavior, input styling, layout, and data model remain unchanged unless separately approved. Placeholder copy is a separate decision.
+This is a copy decision only. The field behavior, input styling, layout, and data model remain unchanged unless separately approved.
+
+## 1.8 Approved Home artwork-name placeholder
+
+The `Nama Karya` input placeholder is approved as:
+
+```text
+Beri nama karyamu
+```
+
+Intent:
+
+- keep the instruction concise and immediately understandable;
+- use a more inviting creative tone than system-oriented wording such as `Masukkan nama karya`;
+- remain consistent with `Buat Karya Baru` and `Nama Karya`.
+
+This is a placeholder-copy decision only. Input behavior, styling, validation, layout, and data model remain unchanged unless separately approved.
 
 ---
 
