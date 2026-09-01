@@ -329,6 +329,88 @@ Intent:
 
 This is a copy decision only. Blank-Canvas behavior, preview rendering, layout, and styling remain unchanged unless separately approved.
 
+## 1.15 Approved Home saved-artwork label
+
+The saved-work section label is approved as:
+
+```text
+Karya Tersimpan
+```
+
+It replaces the original visible label:
+
+```text
+PROYEK CLOUD
+```
+
+Intent:
+
+- tell the user directly what the section contains;
+- avoid exposing storage architecture as the main section name;
+- use `Karya` consistently for the user-facing artwork concept.
+
+This does not remove or alter the underlying cloud storage/synchronization behavior. It is a user-facing copy decision only.
+
+## 1.16 Approved Home continuation heading
+
+Keep the original heading:
+
+```text
+Lanjutkan pekerjaan
+```
+
+Reason:
+
+- it is already natural and immediately understandable;
+- it clearly communicates that the items below can be reopened and continued;
+- no rewrite is needed merely for stylistic variation.
+
+## 1.17 Approved Home saved-artwork count
+
+The saved-work count/status should use the pattern:
+
+```text
+{count} karya tersedia di perangkat ini
+```
+
+Example:
+
+```text
+3 karya tersedia di perangkat ini
+```
+
+It replaces the original pattern:
+
+```text
+{count} proyek terhubung ke perangkat ini
+```
+
+Intent:
+
+- use the user-facing term `karya` rather than `proyek` in this section;
+- keep the relationship to the current device explicit;
+- avoid generic wording such as `data`, which does not tell the user what is available.
+
+## 1.18 Approved Home artwork-card summary
+
+The ordinary saved-artwork card summary should show only the basic artwork information:
+
+```text
+48 × 24 Grid · 8 warna
+```
+
+Use the actual Grid dimensions and palette count for each artwork.
+
+Do **not** preview the collaboration/access role (`owner`, `editor`, `viewer`, `Pemilik`, or equivalent) in the ordinary artwork card summary.
+
+Reason:
+
+- the role label is not needed to identify or continue the artwork;
+- a standalone role preview is easy to misread and adds unnecessary complexity;
+- access/permission behavior may remain fully functional internally or in a dedicated collaboration surface without being shown in this card summary.
+
+This is a visibility/copy decision only. Do not remove the underlying role/access model or permissions from the implementation unless separately approved.
+
 ---
 
 # 2. Tool naming rule
