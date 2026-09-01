@@ -13,8 +13,8 @@ Durable direction: `docs/foundation/05-ui-design-system.md`.
 - familiar MIVUBI header and `Dari gambar ke grid presisi.` hero retained;
 - Home is project-launcher-first;
 - Admin size controls are absent from ordinary Player Home;
-- project cards show clear `Canvas`, `Grid Canvas`, and `Ukuran 1 Tile` facts;
-- no total-tile statistic in the Player summary;
+- project cards should surface the Grid information that is actually useful to users;
+- Tile counts/statistics such as `1.152 Tile` are not Player-facing information because they only duplicate total Grid-cell count and are not an intended material/production metric;
 - existing project thumbnail and menu/icon language retained.
 
 ### Player project start
