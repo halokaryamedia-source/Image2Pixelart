@@ -162,6 +162,24 @@ Intent:
 
 The existing upload/drop behavior, accepted formats, size limits, icon, layout, and visual treatment remain unchanged unless separately approved.
 
+## 1.7 Approved Home artwork-name label
+
+The Home artwork-name field label is approved as:
+
+```text
+Nama Karya
+```
+
+It replaces the original visible label `Nama proyek` for this creation field.
+
+Intent:
+
+- make it explicit that the user is naming the artwork being created;
+- stay consistent with the approved `Buat Karya Baru` wording;
+- do not shorten this field to `Nama`.
+
+This is a copy decision only. The field behavior, input styling, layout, and data model remain unchanged unless separately approved. Placeholder copy is a separate decision.
+
 ---
 
 # 2. Tool naming rule
