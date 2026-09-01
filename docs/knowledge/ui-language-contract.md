@@ -94,6 +94,35 @@ Intent:
 
 This is a copy decision only. Preserve the original section placement and visual treatment unless a separate structural or visual change is explicitly approved.
 
+## 1.4 Approved Home start-mode labels
+
+The two Home start-mode labels are approved as:
+
+```text
+▧ Upload Gambar
+▦ Buat Baru
+```
+
+They replace the original visible labels:
+
+```text
+▧ Dari gambar
+▦ Canvas kosong
+```
+
+Intent:
+
+- tell the user what action to take instead of only describing a state or source;
+- `Upload Gambar` clearly communicates the image-based path;
+- `Buat Baru` clearly communicates starting a new work without an uploaded image;
+- supporting descriptions may be added or refined separately after the labels are finalized.
+
+Preservation requirements:
+
+- keep the exact original icons `▧` and `▦`;
+- keep the existing mode behavior (`image` and `blank`); 
+- do not change the tab styling, active treatment, layout, or interaction unless separately approved.
+
 ---
 
 # 2. Tool naming rule
