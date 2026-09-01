@@ -58,6 +58,24 @@ Reason:
 
 Use `PIXEL ART EDITOR` consistently wherever this product descriptor is intentionally reused in the cleaned-up UI, unless a specific surface receives a later approved exception.
 
+## 1.2 Approved Home Hero copy
+
+The Home Hero copy is approved as:
+
+```text
+Buat dan edit Pixel Art.
+Ubah gambarmu menjadi Pixel Art, atau mulai berkarya dari Canvas kosong.
+```
+
+Intent:
+
+- direct explanation of the main activity: creating and editing Pixel Art;
+- keep the tone inviting and creative rather than system-like;
+- communicate both entry paths: converting an image or starting from an empty Canvas;
+- keep `Pixel Art` and `Canvas` as the approved product terms.
+
+This is a copy decision only. Preserve the original Hero layout, typography hierarchy, colors, spacing character, and surrounding visual treatment unless a separate visual change is explicitly approved.
+
 ---
 
 # 2. Tool naming rule
