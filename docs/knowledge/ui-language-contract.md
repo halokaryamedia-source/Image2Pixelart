@@ -146,6 +146,22 @@ Intent:
 
 These are copy decisions only. They do not authorize changing the original icons, mode behavior, component styling, layout, or interaction.
 
+## 1.6 Approved Home upload-area instruction
+
+The image upload area instruction is approved as:
+
+```text
+Klik untuk memilih gambar atau drag & drop ke area ini.
+```
+
+Intent:
+
+- clearly communicate both supported input methods;
+- keep `drag & drop` in its familiar software terminology instead of forcing an awkward Indonesian translation such as `seret`;
+- remain direct and instructional without sounding system-heavy.
+
+The existing upload/drop behavior, accepted formats, size limits, icon, layout, and visual treatment remain unchanged unless separately approved.
+
 ---
 
 # 2. Tool naming rule
