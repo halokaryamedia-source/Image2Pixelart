@@ -36,6 +36,20 @@ The goal is **natural, clear product language**, not language purity.
 
 Do not alternate between multiple terms for the same concept without a real contextual reason.
 
+## Basic UI information clarity rule
+
+Do not simplify or rewrite functional UI copy merely to make it sound more creative if doing so makes basic information less explicit.
+
+For labels, status text, measurements, input guidance, and other functional information:
+
+- clarity comes before personality;
+- preserve direct wording when the original already communicates the state or information well;
+- do not hide a useful fact only to reduce text;
+- avoid decorative rewriting that makes the user infer what a value or state means;
+- creative tone is appropriate for Hero, onboarding, and invitations, while operational UI should remain concise and explicit.
+
+Example: `Gambar siap diproses` is preferable to a more promotional rewrite when the purpose of the text is simply to report the current image state.
+
 ## 1.1 Approved Home product descriptor
 
 The original Home eyebrow/product descriptor:
@@ -259,6 +273,22 @@ Intent:
 - keep the preview heading concise and consistent with the approved `Karya` terminology.
 
 This is a copy decision only. Preview behavior, artwork rendering, layout, styling, states, and surrounding controls remain unchanged unless separately approved.
+
+## 1.12 Approved Home image-preview status
+
+For the image-upload path, keep the original preview status:
+
+```text
+Gambar siap diproses
+```
+
+Reason:
+
+- it clearly reports the current state of the uploaded image;
+- it is basic functional information and does not need a more promotional rewrite;
+- preserving explicit status information follows the basic UI information clarity rule above.
+
+This is a copy decision only. Status behavior, placement, styling, and surrounding preview behavior remain unchanged unless separately approved.
 
 ---
 
