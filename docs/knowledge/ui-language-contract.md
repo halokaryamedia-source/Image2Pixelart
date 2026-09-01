@@ -36,6 +36,28 @@ The goal is **natural, clear product language**, not language purity.
 
 Do not alternate between multiple terms for the same concept without a real contextual reason.
 
+## 1.1 Approved Home product descriptor
+
+The original Home eyebrow/product descriptor:
+
+```text
+MIVUBI · PIXEL MOSAIC PLANNER
+```
+
+is approved to become:
+
+```text
+MIVUBI · PIXEL ART EDITOR
+```
+
+Reason:
+
+- `Pixel Art` describes the artwork/result more clearly than `Pixel Mosaic`.
+- `Editor` is direct and familiar product language.
+- This is a copy/terminology decision only; it does not authorize changes to the MIVUBI logo, typography, spacing, color, or surrounding Hero styling.
+
+Use `PIXEL ART EDITOR` consistently wherever this product descriptor is intentionally reused in the cleaned-up UI, unless a specific surface receives a later approved exception.
+
 ---
 
 # 2. Tool naming rule
