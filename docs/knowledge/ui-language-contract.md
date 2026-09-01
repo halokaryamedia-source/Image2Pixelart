@@ -216,6 +216,28 @@ Preservation requirements:
 - preserve the existing visual treatment and information placement unless a separate visual change is explicitly approved;
 - internal dimensions or Tile-related implementation data may remain internally and are not removed by this copy/information decision.
 
+## 1.10 Approved Home primary action
+
+The Home creation primary-action button is approved as:
+
+```text
+Buat Karya →
+```
+
+It replaces the original visible copy:
+
+```text
+Buat & buka editor →
+```
+
+Intent:
+
+- keep the call to action short and direct;
+- stay consistent with the approved `Buat Karya Baru` terminology;
+- avoid exposing the navigation step (`buka editor`) when the user only needs to understand the action they are taking.
+
+This is a copy decision only. Preserve the original button icon/arrow, behavior, styling, placement, states, and navigation unless separately approved.
+
 ---
 
 # 2. Tool naming rule
