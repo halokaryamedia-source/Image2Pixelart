@@ -76,6 +76,24 @@ Intent:
 
 This is a copy decision only. Preserve the original Hero layout, typography hierarchy, colors, spacing character, and surrounding visual treatment unless a separate visual change is explicitly approved.
 
+## 1.3 Approved Home creation heading
+
+The Home creation-area heading is approved as:
+
+```text
+Buat Karya Baru
+```
+
+It replaces the system-oriented wording `Buat Proyek Baru` for the user-facing creation section.
+
+Intent:
+
+- make the Home surface feel creative rather than administrative;
+- refer to what the user is making as a `Karya` in this entry context;
+- keep the underlying project model and technical naming unchanged unless separately approved.
+
+This is a copy decision only. Preserve the original section placement and visual treatment unless a separate structural or visual change is explicitly approved.
+
 ---
 
 # 2. Tool naming rule
