@@ -72,8 +72,9 @@ Use the following terminology as the current language baseline.
 | project | `Proyek` | natural Indonesian |
 | editor | `Editor` | common software term |
 | canvas | `Canvas` | keep English; do not force `Kanvas` |
-| grid | `Grid` | keep English |
-| tile | `Tile` | keep English |
+| grid | `Grid` | keep English; primary visible dimensional concept |
+| pixel-art result | `Pixel Art` | use for the visual/artwork result, not as a replacement for `Grid` |
+| tile | **not a general-user UI term** | do not surface Tile counts or Tile facts in ordinary UI |
 | palette | `Palet` | natural Indonesian |
 | color | `Warna` | natural Indonesian |
 | source image | `Gambar sumber` | clear Indonesian |
@@ -94,6 +95,21 @@ Use the following terminology as the current language baseline.
 | link | `Link` | preferred over forced `tautan` in compact product UI |
 | HEX | `HEX` | technical standard; never translate |
 | PNG / PDF / CSV | exact format names | never translate format names |
+
+## Grid / Pixel Art / Tile distinction
+
+Keep these concepts separate:
+
+- `Canvas` = working area.
+- `Grid` = row/column structure, for example `48 × 24`.
+- `Pixel Art` = visual/artwork result produced on the Grid.
+- `Tile` = **not displayed as a normal user-facing information concept**.
+
+The original `1.152 Tile` value was only the total number of Grid cells (`48 × 24 = 1.152`). It is not a meaningful material or production count for the intended general-user workflow, so it should not be surfaced as a Tile statistic.
+
+Do not replace `1.152 Tile` with another redundant total-cell label unless a real user need is later approved. Showing `48 × 24 Grid` is sufficient when the Grid dimensions are the information that matters.
+
+This is a user-facing information decision. Internal data fields or Admin configuration needed by the implementation are a separate concern and are not renamed or removed by this language contract unless separately approved.
 
 ## Device / Perangkat
 
@@ -162,7 +178,7 @@ Mixed Indonesian/English copy is acceptable when the English word is the natural
 Good pattern:
 
 ```text
-Perbarui grid dari gambar
+Perbarui Grid dari gambar
 Buka Library Palet
 Fit Canvas
 Salin link
@@ -195,7 +211,7 @@ Examples:
 
 ```text
 #000000
-PNG + grid
+PNG + Grid
 PDF blueprint
 CSV material
 Ctrl/Cmd + Z
@@ -227,8 +243,10 @@ Do not introduce synonyms simply to make copy look varied.
 Examples:
 
 - if the concept is called `Canvas`, do not call the same concept `Kanvas` elsewhere
+- if the concept is called `Grid`, do not use `Pixel Art` to mean the Grid structure
 - if the role is `Viewer`, do not alternate with `Hanya lihat`
 - if the surface is `Library Palet`, do not alternately call it `Koleksi Palet`
+- do not reintroduce `Tile` statistics into ordinary user-facing UI without explicit approval
 
 ---
 
