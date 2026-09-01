@@ -290,6 +290,45 @@ Reason:
 
 This is a copy decision only. Status behavior, placement, styling, and surrounding preview behavior remain unchanged unless separately approved.
 
+## 1.13 Approved Home blank-preview status
+
+For the `Buat Baru` path, replace the original status `Grid fisik` with:
+
+```text
+Ukuran Grid
+```
+
+Reason:
+
+- `Grid fisik` comes from the older physical-mosaic production concept and is unclear in the current user flow;
+- `Ukuran Grid` directly states the information being represented;
+- do not reintroduce physical-production terminology when it no longer helps the user understand the interface.
+
+This is a copy decision only. Preview behavior, placement, styling, and Grid rendering remain unchanged unless separately approved.
+
+## 1.14 Approved Home blank-preview guidance
+
+For the `Buat Baru` path, the preview guidance is approved as:
+
+```text
+Mulai Pixel Art baru dari Canvas kosong.
+```
+
+It replaces the original copy:
+
+```text
+Canvas akan dimulai kosong tanpa tile atau palet.
+```
+
+Intent:
+
+- explain the next working context in a simple, user-oriented sentence;
+- avoid mentioning `Tile`, which is no longer a general-user UI information concept;
+- keep `Pixel Art` and `Canvas` as the approved terms;
+- remain clear without adding unnecessary system or implementation language.
+
+This is a copy decision only. Blank-Canvas behavior, preview rendering, layout, and styling remain unchanged unless separately approved.
+
 ---
 
 # 2. Tool naming rule
