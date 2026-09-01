@@ -114,14 +114,37 @@ Intent:
 
 - tell the user what action to take instead of only describing a state or source;
 - `Upload Gambar` clearly communicates the image-based path;
-- `Buat Baru` clearly communicates starting a new work without an uploaded image;
-- supporting descriptions may be added or refined separately after the labels are finalized.
+- `Buat Baru` clearly communicates starting a new work without an uploaded image.
 
 Preservation requirements:
 
 - keep the exact original icons `▧` and `▦`;
-- keep the existing mode behavior (`image` and `blank`); 
+- keep the existing mode behavior (`image` and `blank`);
 - do not change the tab styling, active treatment, layout, or interaction unless separately approved.
+
+## 1.5 Approved Home start-mode descriptions
+
+The supporting descriptions are approved as:
+
+### Upload Gambar
+
+```text
+Ubah gambar menjadi Pixel Art secara otomatis.
+```
+
+### Buat Baru
+
+```text
+Buat Pixel Art dari Canvas kosong.
+```
+
+Intent:
+
+- keep both descriptions short and action-oriented;
+- explain the outcome of each mode without exposing implementation details;
+- use the approved terms `Pixel Art` and `Canvas` consistently.
+
+These are copy decisions only. They do not authorize changing the original icons, mode behavior, component styling, layout, or interaction.
 
 ---
 
