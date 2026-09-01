@@ -238,6 +238,28 @@ Intent:
 
 This is a copy decision only. Preserve the original button icon/arrow, behavior, styling, placement, states, and navigation unless separately approved.
 
+## 1.11 Approved Home preview title
+
+The Home preview heading is approved as:
+
+```text
+Preview Karya
+```
+
+It replaces the original visible heading pattern:
+
+```text
+Preview · 48 × 24
+```
+
+Intent:
+
+- make the preview clearly refer to the artwork;
+- avoid repeating Grid dimensions that are already exposed through `Ukuran Grid`;
+- keep the preview heading concise and consistent with the approved `Karya` terminology.
+
+This is a copy decision only. Preview behavior, artwork rendering, layout, styling, states, and surrounding controls remain unchanged unless separately approved.
+
 ---
 
 # 2. Tool naming rule
