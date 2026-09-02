@@ -1,25 +1,3 @@
-# Default owner
+# MIVUBI repository ownership
+# The handle below is the operational GitHub repository owner, not product branding.
 * @halokaryamedia-source
-
-# Governance and repository verification
-/AGENTS.md @halokaryamedia-source
-/GITHUB_RULES.md @halokaryamedia-source
-/CONTEXT.md @halokaryamedia-source
-/CONTRIBUTING.md @halokaryamedia-source
-/SECURITY.md @halokaryamedia-source
-/.github/ @halokaryamedia-source
-/.agents/ @halokaryamedia-source
-/scripts/verify-repository.mjs @halokaryamedia-source
-
-# Product contracts and implementation
-/docs/foundation/ @halokaryamedia-source
-/docs/knowledge/ @halokaryamedia-source
-/src/ @halokaryamedia-source
-/db/ @halokaryamedia-source
-/realtime/ @halokaryamedia-source
-
-# Build/deployment configuration
-/package.json @halokaryamedia-source
-/package-lock.json @halokaryamedia-source
-/vite.config.ts @halokaryamedia-source
-/vercel.json @halokaryamedia-source
