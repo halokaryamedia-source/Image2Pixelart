@@ -1,10 +1,18 @@
 import type { DeviceIdentity } from './types';
 
 const DEVICE_KEY = 'mivubi-cloud-device-v1';
+const DEVICE_SEQUENCE_KEY = 'mivubi-device-sequence-v1';
 
 function randomSecret(): string {
 	const bytes = crypto.getRandomValues(new Uint8Array(32));
 	return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function nextDefaultDisplayName(): string {
+	const stored = Number.parseInt(localStorage.getItem(DEVICE_SEQUENCE_KEY) ?? '0', 10);
+	const next = Number.isFinite(stored) ? Math.max(1, stored + 1) : 1;
+	localStorage.setItem(DEVICE_SEQUENCE_KEY, String(next));
+	return `User-${String(next).padStart(2, '0')}`;
 }
 
 function parseIdentity(value: string | null): DeviceIdentity | null {
@@ -22,7 +30,7 @@ export function getDeviceIdentity(): DeviceIdentity {
 	const existing = parseIdentity(localStorage.getItem(DEVICE_KEY));
 	if (existing) return existing;
 	const id = crypto.randomUUID();
-	const created = { id, secret: randomSecret(), displayName: `Pengguna ${id.slice(0, 4).toUpperCase()}` };
+	const created = { id, secret: randomSecret(), displayName: nextDefaultDisplayName() };
 	localStorage.setItem(DEVICE_KEY, JSON.stringify(created));
 	return created;
 }

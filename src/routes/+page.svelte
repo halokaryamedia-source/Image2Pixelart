@@ -20,7 +20,7 @@
 		try {
 			device = getDeviceIdentity(); await registerDevice(device);
 			projects = (await listCloudProjects(device)).projects;
-		} catch (caught) { error = caught instanceof Error ? caught.message : 'Cloud belum dapat dihubungkan.'; }
+		} catch (caught) { error = caught instanceof Error ? caught.message : 'File tersimpan belum dapat dimuat.'; }
 		finally { ready = true; }
 	}
 
@@ -29,7 +29,7 @@
 		try {
 			let project = createProject(input);
 			if (input.mode === 'image') {
-				if (!input.file) throw new Error('Pilih gambar sumber terlebih dahulu.');
+				if (!input.file) throw new Error('Pilih gambar terlebih dahulu.');
 				project = await convertProjectImage(project, input.file, { suggestPalette: true, applyPalette: true, applyCells: true, replaceSource: true });
 			}
 			await createCloudProject(device, project);
@@ -37,28 +37,28 @@
 				setPendingUpload(project.id, { file: input.file, width: project.sourceImage.width, height: project.sourceImage.height });
 			}
 			await goto(`/project/${project.id}`);
-		} catch (caught) { error = caught instanceof Error ? caught.message : 'Proyek cloud gagal dibuat.'; }
+		} catch (caught) { error = caught instanceof Error ? caught.message : 'Karya gagal dibuat.'; }
 	}
 
 	async function removeProject(id: string) {
 		if (!device) return;
 		try { await deleteCloudProject(device, id); projects = (await listCloudProjects(device)).projects; }
-		catch (caught) { error = caught instanceof Error ? caught.message : 'Proyek gagal dihapus.'; }
+		catch (caught) { error = caught instanceof Error ? caught.message : 'File gagal dihapus.'; }
 	}
 
 	async function importProject(file: File) {
 		if (!device) return;
 		try {
-			if (file.size > 50 * 1024 * 1024) throw new Error('File proyek melebihi batas 50 MB.');
+			if (file.size > 50 * 1024 * 1024) throw new Error('Ukuran file melebihi batas 50 MB.');
 			const imported = deserializeProject(await file.text()); const now = new Date().toISOString();
 			const project = { ...imported, id: crypto.randomUUID(), name: `${imported.name} (impor)`, createdAt: now, updatedAt: now };
 			await createCloudProject(device, project); await goto(`/project/${project.id}`);
-		} catch (caught) { error = caught instanceof Error ? caught.message : 'File proyek tidak dapat diimpor.'; }
+		} catch (caught) { error = caught instanceof Error ? caught.message : 'File tidak dapat diimpor.'; }
 	}
 
 	async function renameDevice() {
 		if (!device) return;
-		const name = prompt('Nama yang ditampilkan pada daftar pengguna aktif:', device.displayName);
+		const name = prompt('Nama Tampilan:', device.displayName);
 		if (!name?.trim()) return;
 		device = updateDeviceDisplayName(device, name); await registerDevice(device);
 	}
@@ -67,7 +67,7 @@
 {#if device}
 	<HomeView {projects} {ready} deviceName={device.displayName} deviceId={device.id} onCreate={createNew} onOpen={(project) => goto(`/project/${project.id}`)} onDelete={removeProject} onImport={importProject} onRenameDevice={renameDevice} />
 {:else if !ready}
-	<div class="loading">Menyiapkan identitas perangkat…</div>
+	<div class="loading">Menyiapkan perangkat…</div>
 {/if}
 
 {#if error}<div class="root-error" role="alert"><span>{error}</span><button onclick={() => (error = null)}>×</button></div>{/if}

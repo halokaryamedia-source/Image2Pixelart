@@ -309,13 +309,13 @@
 	</div>
 	{#if hoverColor}
 		<div class:keyboard={keyboardCursorVisible} class="coordinate-chip">
-			{#if keyboardCursorVisible}<em>Fokus keyboard</em>{/if}
+			{#if keyboardCursorVisible}<em>Fokus Keyboard</em>{/if}
 			<span style={`--chip:${hoverColor.hex}`}></span>
 			C{hoverColumn} / R{hoverRow}
 			<b>{hoverColor.hex}</b>
 		</div>
 	{:else if hoverEmpty}
-		<div class:keyboard={keyboardCursorVisible} class="coordinate-chip empty">{#if keyboardCursorVisible}<em>Fokus keyboard</em>{/if}C{hoverColumn} / R{hoverRow}<b>SEL KOSONG</b></div>
+		<div class:keyboard={keyboardCursorVisible} class="coordinate-chip empty">{#if keyboardCursorVisible}<em>Fokus Keyboard</em>{/if}C{hoverColumn} / R{hoverRow}<b>SEL KOSONG</b></div>
 	{/if}
 </div>
 

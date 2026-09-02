@@ -44,13 +44,13 @@
 </script>
 
 <div class="cropper">
-	<button type="button" class:dragging class="frame" bind:this={frame} style={`aspect-ratio:${targetAspect}`} aria-label="Area crop. Seret gambar atau gunakan tombol panah." onpointerdown={pointerDown} onpointermove={pointerMove} onpointerup={pointerUp} onpointercancel={pointerUp} onkeydown={keyboard}>
+	<button type="button" class:dragging class="frame" bind:this={frame} style={`aspect-ratio:${targetAspect}`} aria-label="Area crop. Geser gambar atau gunakan tombol panah." onpointerdown={pointerDown} onpointermove={pointerMove} onpointerup={pointerUp} onpointercancel={pointerUp} onkeydown={keyboard}>
 		<img src={source.dataUrl} alt="Preview crop gambar sumber" draggable="false" style={`left:${-active.x / active.width * 100}%;top:${-active.y / active.height * 100}%;width:${100 / active.width}%;height:${100 / active.height}%`} />
 		<div class="thirds"><i></i><i></i><b></b><b></b></div>
-		<span>{zoom < 1 ? 'Ruang transparan akan menjadi sel kosong' : 'Seret untuk mengatur crop'}</span>
+		<span>{zoom < 1 ? 'Ruang transparan akan menjadi sel kosong' : 'Geser gambar untuk mengatur area crop'}</span>
 	</button>
 	<div class="crop-controls"><label><span>Zoom <small>{Math.round(zoom * 100)}%</small></span><input type="range" min={MIN_CROP_ZOOM} max={MAX_CROP_ZOOM} step="0.01" value={zoom} oninput={changeZoom} aria-label="Zoom crop gambar" /></label><button type="button" onclick={() => onChange(base)}>Reset</button></div>
-	<p class="zoom-helper">Geser ke kiri di bawah 100% untuk mengecilkan gambar dan menambah ruang kosong.</p>
+	<p class="zoom-helper">Turunkan Zoom di bawah 100% untuk mengecilkan gambar.</p>
 </div>
 
 <style>

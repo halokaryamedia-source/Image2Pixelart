@@ -2,37 +2,39 @@
 
 ## Current Status
 
-The Player-first UI is aligned back to the familiar original MIVUBI composition while preserving the existing logo, icon/symbol language, assets, colors, typography, card/panel styling, and grid-preview character.
+The approved UI review covering decisions **1–170** has been implemented at source/static level on the selected `Local` branch while preserving the original MIVUBI visual identity.
 
-Implemented at source/static level:
+Implemented direction:
 
-- Player Home uses the familiar MIVUBI header + `Dari gambar ke grid presisi.` hero + project continuation cards;
-- Admin project creation is removed from ordinary Player Home and moved to `/admin`;
-- project cards label `Canvas`, `Grid Canvas`, and `Ukuran 1 Tile` explicitly;
-- empty Player projects use the original-style two-column start card with `Dari gambar / Build langsung`;
-- image upload/position uses the existing upload/grid/crop visual language;
-- Player Editor keeps the existing editor style with basic tools first and advanced controls progressively available;
-- Player copy avoids developer/prompt rationale and infrastructure terminology;
-- project owner remains the server-enforced Admin authority for structural canvas changes.
+- Home product language uses `PIXEL ART EDITOR`, `Buat Karya Baru`, `File Tersimpan`, and the approved upload/preview/file-management copy;
+- ordinary Home no longer exposes Tile totals or editable physical/grid setup controls;
+- Canvas physical size and Grid size remain visible as information only;
+- Editor copy now uses the approved `Hasil Pixel Art`, `Saran Warna`, `Library Palet`, tool labels, selection wording, view controls, shortcut wording, and file/export terminology;
+- ordinary Editor no longer exposes a Canvas-size control entry point;
+- collaboration roster/request/handoff UI is no longer rendered in the project route;
+- trash/loading/device/status wording follows the approved File/User terminology;
+- crop and Canvas hover/focus wording follows the final reviewed copy;
+- original logo, icon/glyph language, fonts, colors, borders, radii, shadows, panel composition, and core canvas interaction remain the visual baseline.
 
-Automatic CI, branch architecture, and GitHub rulesets remain intentionally deferred.
+Automatic CI, branch architecture, deployment, database migration, and external cloud mutations remain intentionally out of scope.
 
 ## Active Boundary
 
-Do not visually redesign the application. Preserve current MIVUBI assets/icons and the familiar original layout language.
+Do not redesign the application while validating this implementation.
 
-Do not reintroduce canvas width/height/tile inputs into ordinary Player flow. Do not weaken the server structural guard.
+Preserve the original MIVUBI visual system and exact approved icon/glyph identities. Do not reintroduce ordinary-user Canvas resize controls, Tile statistics, collaboration controls, raw collaboration roles, revision text, or infrastructure/provider wording into normal UI.
 
-Do not leak developer notes, design rationale, prompt wording, provider names, raw revision numbers, or device UUIDs into ordinary UI copy.
+The cloud/realtime persistence layer may continue to enforce its existing internal authorization/revision contracts; this UI implementation does not authorize weakening server-side data protections.
 
-Current proof level is **SOURCE/STATIC ONLY** because LOCAL_CODE/LIVE_BROWSER with the actual Svelte runtime is not available in this execution context.
+Current proof level is **SOURCE/STATIC ONLY** in this execution context. No claim is made yet about rendered layout, browser interaction, focus behavior, drag/crop behavior, or deployed cloud runtime behavior.
 
 ## Next Step
 
-When LOCAL_CODE / LIVE_BROWSER capability is available:
+When `LOCAL_CODE` / `LIVE_BROWSER` capability is available:
 
-1. run `npm run check`;
-2. run the smallest relevant tests/build proof for any concrete failure;
-3. inspect Player Home, empty-project start, image positioning, Player Editor, Finish dialog, and `/admin` in a real browser;
-4. fix only concrete compile/render/interaction issues found by that proof;
-5. do not restart a redesign.
+1. run `npm run verify:repository`;
+2. run `npm run check`;
+3. run the smallest relevant tests and `npm run build` if static checks indicate a concrete issue or the final application gate is required;
+4. inspect Home and Editor in a real browser, including image upload, crop/fit, palette flows, drawing tools, selection, shortcuts, export controls, fixed Canvas information, and trash/loading states;
+5. fix only concrete compile/render/interaction/accessibility issues found by that proof;
+6. do not restart a redesign or reintroduce removed collaboration/Canvas-size UI.
