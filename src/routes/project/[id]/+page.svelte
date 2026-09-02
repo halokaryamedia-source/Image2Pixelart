@@ -155,6 +155,21 @@
 	:global(.tool-rail button:nth-child(1):not(.active)),:global(.tool-rail button:nth-child(3):not(.active)),:global(.tool-rail button:nth-child(5):not(.active)){min-height:50px;background:#faf9f4;color:#68716c}
 	:global(.tool-rail button:nth-child(1) b),:global(.tool-rail button:nth-child(3) b),:global(.tool-rail button:nth-child(5) b){font-size:18px}
 	:global(.tool-rail button:nth-child(1) span),:global(.tool-rail button:nth-child(3) span),:global(.tool-rail button:nth-child(5) span){font-size:9px}
+
+	/* Palette management stays available without competing with Palet Cepat. */
+	:global(.right-panel .palette-overview){grid-template-columns:1fr;gap:6px}
+	:global(.right-panel .palette-overview button){min-height:58px;display:grid;grid-template-columns:42px 26px minmax(0,1fr);align-items:center;gap:8px;padding:7px 36px 7px 7px}
+	:global(.right-panel .palette-overview i){width:42px;height:42px}
+	:global(.right-panel .palette-overview span){margin:0;font-size:11px;text-align:center}
+	:global(.right-panel .palette-overview small){font-size:11px}
+	:global(.right-panel .add-color){grid-template-columns:1fr}
+	:global(.right-panel .add-color .primary){min-height:42px}
+	:global(.right-panel .panel-empty){padding:14px}
+
+	/* Basic Canvas information only; editing statistics stay out of ordinary UI. */
+	:global(.left-panel .property-grid span:nth-child(n+3)){display:none}
+	:global(.left-panel .property-grid){grid-template-columns:1fr 1fr;margin-bottom:0}
+
 	@media(max-width:760px){
 		:global(.tool-rail::before){content:'';width:1px;min-width:1px;min-height:36px;align-self:center;margin:7px 3px;padding:0;border:0;background:#d8d3c6}
 		:global(.tool-rail button:nth-child(1):not(.active)),:global(.tool-rail button:nth-child(3):not(.active)),:global(.tool-rail button:nth-child(5):not(.active)){min-width:58px;min-height:54px}
