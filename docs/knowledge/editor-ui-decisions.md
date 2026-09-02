@@ -627,6 +627,334 @@ Use:
 Buka Library Palet
 ```
 
+### 122 — Selected-color heading
+
+Keep the pattern:
+
+```text
+WARNA {slot}
+```
+
+### 123 — Cell usage count
+
+Replace Tile terminology with the Grid-unit term:
+
+```text
+{count} sel
+```
+
+### 124 — HEX label
+
+Keep:
+
+```text
+HEX
+```
+
+### 125 — Optional color-name label
+
+Use:
+
+```text
+Nama Warna (opsional)
+```
+
+### 126 — Empty color-name placeholder
+
+Keep:
+
+```text
+Tanpa nama
+```
+
+### 127 — Color lock action
+
+Keep the direct lock/unlock wording:
+
+```text
+Kunci warna
+Buka kunci warna
+```
+
+### 128 — Native color picker
+
+Use:
+
+```text
+Pilih Warna
+```
+
+### 129 — Color more-menu trigger
+
+Keep the exact original trigger:
+
+```text
+•••
+```
+
+### 130 — Save palette action
+
+Use:
+
+```text
+Simpan ke Library Palet
+```
+
+### 131 — Delete color action
+
+Use:
+
+```text
+Hapus Warna
+```
+
+### 132–134 — Panel picker labels
+
+Use:
+
+```text
+Referensi Gambar
+Palet
+Palet Cepat
+```
+
+These labels apply only inside the existing `Panel` picker. Preserve the existing panel structure and behavior.
+
+### 135 — Crop positioning instruction
+
+Use:
+
+```text
+Geser gambar untuk mengatur area crop
+```
+
+### 136 — Transparent-area information
+
+Keep:
+
+```text
+Ruang transparan akan menjadi sel kosong
+```
+
+### 137 — Crop zoom label
+
+Use:
+
+```text
+Zoom
+```
+
+### 138 — Crop reset action
+
+Keep:
+
+```text
+Reset
+```
+
+### 139 — Crop zoom helper
+
+Use:
+
+```text
+Turunkan Zoom di bawah 100% untuk mengecilkan gambar.
+```
+
+Do not append the previous explanation about adding empty space.
+
+### 140 — Filled-cell hover information
+
+Keep the original pattern:
+
+```text
+■ C{column} / R{row} #HEX
+```
+
+### 141 — Empty-cell hover information
+
+Keep:
+
+```text
+C{column} / R{row}
+SEL KOSONG
+```
+
+### 142 — Keyboard-focus indicator
+
+Use:
+
+```text
+Fokus Keyboard
+```
+
+### 143 — Palette-library eyebrow
+
+Use:
+
+```text
+LIBRARY PALET
+```
+
+### 144 — Palette-library choose title
+
+Use:
+
+```text
+Pilih Palet
+```
+
+### 145 — Palette-library save title
+
+Use:
+
+```text
+Simpan Palet
+```
+
+### 146 — Palette-library helper
+
+Use:
+
+```text
+Mengganti palet akan menyesuaikan warna pada Grid tanpa mengubah susunan sel.
+```
+
+Do not expose raster/remap terminology here.
+
+### 147 — Current-palette label
+
+Use:
+
+```text
+Palet Saat Ini
+```
+
+### 148 — Current-palette status
+
+Use:
+
+```text
+AKTIF · {count} warna
+✓ Sedang Digunakan
+```
+
+### 149 — Suggested-palette label
+
+Use:
+
+```text
+Saran Warna
+```
+
+### 150 — Suggested-palette status
+
+Use:
+
+```text
+SARAN WARNA · {count} warna
+```
+
+### 151 — Suggested-palette action/status
+
+Use:
+
+```text
+✓ Sama dengan Palet Saat Ini
+Gunakan Palet
+```
+
+Show the appropriate state according to whether the suggested palette already matches the active palette.
+
+### 152 — Create custom palette
+
+Use:
+
+```text
++ Buat Palet Sendiri
+```
+
+### 153 — Palette-name label
+
+Use:
+
+```text
+Nama Palet
+```
+
+### 154 — Color-name field in palette form
+
+Use:
+
+```text
+Nama Warna (opsional)
+```
+
+### 155 — Add color in palette form
+
+Use:
+
+```text
++ Tambah Warna
+```
+
+### 156 — Return from palette form
+
+Keep:
+
+```text
+Kembali
+```
+
+### 157 — Save custom palette
+
+Use:
+
+```text
+Simpan Palet
+```
+
+### 158 — Keyboard-shortcut modal title
+
+Use:
+
+```text
+EDITOR
+Keyboard Shortcuts
+```
+
+### 159 — Keyboard-shortcut helper
+
+Use:
+
+```text
+Shortcut tidak aktif saat kamu sedang mengetik.
+```
+
+### 160 — Tool shortcuts
+
+Use the existing shortcut keys with the approved tool terminology:
+
+```text
+P       Pencil
+F       Fill
+E       Eraser
+I       Pipet
+S       Select
+Space   Tahan untuk Pan
+```
+
+### 161 — General project shortcuts
+
+Keep the existing behavior and use consistent UI capitalization for:
+
+```text
+Ctrl/Cmd Z       Undo
+Ctrl/Cmd ⇧ Z     Redo
+Ctrl/Cmd S       Simpan Sekarang
+Ctrl/Cmd E       Ekspor Format Terpilih
+Esc              Tutup atau Batalkan
+```
+
 ---
 
 ## Scope boundary
