@@ -140,38 +140,4 @@
 
 <style>
 	.status-card{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;padding:24px;text-align:center}.status-card img{width:64px;height:64px;image-rendering:pixelated}.status-card h1{margin:0;font:650 28px "Readex Pro",sans-serif}.status-card p{max-width:520px;color:#66716b}.status-card .error{color:#963f27}.status-card button,.status-card a{min-height:42px;display:inline-flex;align-items:center;padding:0 16px;border:0;border-radius:7px;background:#1f6d4a;color:white;text-decoration:none;font-weight:700}.root-error{position:fixed;z-index:150;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:16px;align-items:center;max-width:min(600px,calc(100vw - 32px));padding:11px 14px;border-radius:7px;background:#963f27;color:white;font-size:12px;font-weight:700}.root-error button{border:0;background:transparent;color:white;font-size:18px}.start-guide{position:fixed;z-index:68;left:50%;bottom:92px;transform:translateX(-50%);min-width:min(430px,calc(100vw - 32px));display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 13px;border:1px solid #cfc9bc;border-radius:8px;background:#fffdfa;box-shadow:0 8px 22px rgba(31,43,36,.09);color:#56615b;font-size:12px;text-align:center;pointer-events:none}.start-guide strong{color:#1f6d4a;font-weight:750}.start-guide span{color:#66716b}@media(max-width:760px){.start-guide{bottom:220px;min-width:calc(100vw - 24px);flex-direction:column;gap:2px;padding:9px 12px}}
-	:global(.left-panel .panel-section > .helper){display:none}
-	:global(.left-panel .panel-section > button.secondary.wide){display:none}
-	:global(.left-panel .suggestion-strip){display:none}
-
-	/* Tool hierarchy: keep all capabilities one click away while making everyday tools dominant. */
-	:global(.tool-rail button:nth-child(2)){order:1}
-	:global(.tool-rail button:nth-child(4)){order:2}
-	:global(.tool-rail button:nth-child(6)){order:3}
-	:global(.tool-rail::before){content:'ALAT LAINNYA';order:4;min-height:25px;display:flex;align-items:center;justify-content:center;border-top:1px solid #ded9cd;border-bottom:1px solid #e8e4da;background:#faf9f4;color:#7a837e;font-size:8px;font-weight:800;letter-spacing:.09em}
-	:global(.tool-rail button:nth-child(1)){order:5}
-	:global(.tool-rail button:nth-child(3)){order:6}
-	:global(.tool-rail button:nth-child(5)){order:7}
-	:global(.tool-rail button:nth-child(1):not(.active)),:global(.tool-rail button:nth-child(3):not(.active)),:global(.tool-rail button:nth-child(5):not(.active)){min-height:50px;background:#faf9f4;color:#68716c}
-	:global(.tool-rail button:nth-child(1) b),:global(.tool-rail button:nth-child(3) b),:global(.tool-rail button:nth-child(5) b){font-size:18px}
-	:global(.tool-rail button:nth-child(1) span),:global(.tool-rail button:nth-child(3) span),:global(.tool-rail button:nth-child(5) span){font-size:9px}
-
-	/* Palette management stays available without competing with Palet Cepat. */
-	:global(.right-panel .palette-overview){grid-template-columns:1fr;gap:6px}
-	:global(.right-panel .palette-overview button){min-height:58px;display:grid;grid-template-columns:42px 26px minmax(0,1fr);align-items:center;gap:8px;padding:7px 36px 7px 7px}
-	:global(.right-panel .palette-overview i){width:42px;height:42px}
-	:global(.right-panel .palette-overview span){margin:0;font-size:11px;text-align:center}
-	:global(.right-panel .palette-overview small){font-size:11px}
-	:global(.right-panel .add-color){grid-template-columns:1fr}
-	:global(.right-panel .add-color .primary){min-height:42px}
-	:global(.right-panel .panel-empty){padding:14px}
-
-	/* Basic Canvas information only; editing statistics stay out of ordinary UI. */
-	:global(.left-panel .property-grid span:nth-child(n+3)){display:none}
-	:global(.left-panel .property-grid){grid-template-columns:1fr 1fr;margin-bottom:0}
-
-	@media(max-width:760px){
-		:global(.tool-rail::before){content:'';width:1px;min-width:1px;min-height:36px;align-self:center;margin:7px 3px;padding:0;border:0;background:#d8d3c6}
-		:global(.tool-rail button:nth-child(1):not(.active)),:global(.tool-rail button:nth-child(3):not(.active)),:global(.tool-rail button:nth-child(5):not(.active)){min-width:58px;min-height:54px}
-	}
 </style>

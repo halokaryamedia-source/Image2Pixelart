@@ -2,46 +2,45 @@
 
 ## Current Status
 
-The approved UI review covering decisions **1–170** and the Website Admin configuration path are implemented at source/static level on the selected `Local` branch while preserving the original MIVUBI visual identity.
+The approved UI review covering decisions **1–170**, Website Admin configuration path, and the Editor simplification pass are implemented at source/static level on the selected `Local` branch while preserving the MIVUBI visual identity.
 
 Implemented direction:
 
-- Akses Umum keeps the approved simplified Home and Editor language/visual system;
-- ordinary users can see Canvas/Grid information but cannot change the website Canvas configuration;
+- Akses Umum uses a Canvas-first Editor: left/right panels closed by default and Palet Cepat visible;
+- ordinary Canvas information is limited to `Ukuran Fisik` and `Ukuran Grid`;
+- structural Canvas resize code is removed from the ordinary Editor surface; existing file dimensions remain immutable through the project API;
+- image-to-Pixel-Art flow uses one normal update action after `Gaya Pixel Art` / `Jumlah warna`; internal Saran Warna steps no longer dominate the ordinary panel;
+- changing image/crop/style/color-count correctly marks the rendered Pixel Art as needing update;
+- Palet Cepat is the normal color-selection surface; the right panel is contextual palette/detail management;
+- primary tools are Pencil, Eraser, Pan with Pipet, Fill, Select grouped as `Alat lainnya` without removing shortcuts/capability;
+- the Header exposes one `Ekspor` menu, with PDF Blueprint and PNG Transparan first and secondary formats under `Ekspor lainnya`;
+- Editor-specific visual hierarchy now lives in `EditorView.svelte` rather than brittle route-level `nth-child` / hidden-element CSS;
 - Website Admin is separate from `User-01`, Device ID, project owner, and active-editor authorization;
-- `/admin/login` provides dedicated Website Admin password login with a server-side Admin session;
-- `/admin`, `/admin/settings`, and `/admin/settings/canvas` provide Website Admin configuration surfaces using the same approved UI terminology;
-- Website Admin determines global Canvas width, height, and cell size; Grid size and total cells are derived automatically;
-- new artworks snapshot the current website Canvas configuration at creation time;
-- later Admin changes do not mutate existing artworks;
-- the project-creation API rejects a new project whose Canvas dimensions do not match the current Website Admin configuration, preventing ordinary UI bypass;
-- project ownership, active-editor authorization, revision guards, and collaboration/cloud persistence remain separate from Website Admin authority;
-- the earlier owner-as-Admin project path is removed from current source authority;
+- `/admin/login`, `/admin`, `/admin/settings`, and `/admin/settings/canvas` are the Website Admin surfaces;
+- Website Admin controls global Canvas width/height/cell size for newly created work; old files keep their stored snapshot;
+- project creation and project save APIs enforce the Canvas authority boundary server-side;
 - migration `002_site_settings.sql` defines persistent website settings, but it has **not** been applied from this execution context;
-- Admin secrets are configured through `ADMIN_PASSWORD_HASH` and `ADMIN_SESSION_SECRET`; no real credentials belong in source.
+- Admin secrets remain external through `ADMIN_PASSWORD_HASH` and `ADMIN_SESSION_SECRET`.
 
-Automatic CI, branch architecture, deployment, database migration, and external cloud mutations remain intentionally out of scope.
+Automatic CI, branch architecture, deployment, database migration, and external cloud mutations remain out of scope unless explicitly authorized.
 
 ## Active Boundary
 
-Do not redesign the application while validating this implementation.
+Do not restart a redesign. Preserve the approved MIVUBI visual system, exact icon/glyph identities, Akses Umum terminology, and Website Admin separation.
 
-Preserve one UI language and one MIVUBI visual identity across Akses Umum and Admin Website. Do not reintroduce ordinary-user Canvas configuration controls, retired collaboration UI, raw revision/provider wording, or project-owner-based Admin authority.
+Do not reintroduce ordinary Canvas resize controls, project-owner-based Admin authority, retired collaboration roster/request/handoff UI, technical palette-pipeline steps, or permanently visible export-format selectors.
 
-Website Admin authentication is a website configuration boundary, not an ordinary-user account system. Existing project permissions remain authoritative for project persistence/editing.
-
-Current proof level is **SOURCE/STATIC ONLY** in this execution context. No claim is made yet that the database migration is applied, Admin environment secrets are configured, rendered login/settings flows work in a browser, or a deployed runtime is updated.
+Current proof level is **SOURCE/STATIC ONLY** in this execution context. No claim is made yet about rendered spacing, menu placement, responsive behavior, focus behavior, crop/pointer interaction, Svelte type/build success, configured Admin secrets, applied database migration, or deployed runtime behavior.
 
 ## Next Step
 
-In an explicitly intended configured environment:
+When `LOCAL_CODE` and preferably `LIVE_BROWSER` capability is available:
 
-1. generate the Admin password hash with `npm run admin:hash-password` and configure `ADMIN_PASSWORD_HASH` plus a strong `ADMIN_SESSION_SECRET` outside source;
-2. apply `npm run db:migrate` only with explicit Operations authorization for the intended database;
-3. run `npm run verify:repository` and `npm run check`; use the smallest relevant tests/build proof for concrete failures;
-4. inspect `/admin/login`, `/admin`, `/admin/settings`, and `/admin/settings/canvas` in a real browser;
-5. verify invalid login, valid login, session persistence, logout, direct-route protection, and Canvas-setting validation;
-6. verify Home reflects the active Canvas setting and a newly created artwork snapshots it;
-7. change the Admin Canvas setting and confirm an existing artwork remains unchanged while the next new artwork uses the new setting;
-8. verify a direct project-create request with non-matching Canvas dimensions is rejected;
-9. fix only concrete issues found by that proof; do not restart a redesign.
+1. run `npm run verify:repository`;
+2. run `npm run check` and fix only concrete Svelte/type issues;
+3. use the smallest relevant tests/build proof if checks expose a concrete executable issue;
+4. inspect the ordinary Editor in a real browser at desktop and mobile widths;
+5. verify Canvas dominance, default panel state, tool hierarchy, Palet Cepat, empty-palette guidance, image crop/update flow, color-count update flow, palette/detail management, save state, shortcuts, and the Export menu;
+6. verify focus/keyboard behavior and that menus/panels do not obscure the Canvas unexpectedly;
+7. verify `/admin/login` and Canvas settings only after Admin secrets + migration are intentionally configured in the target environment;
+8. do not run migration/deploy/cloud mutation without explicit Operations authorization.
