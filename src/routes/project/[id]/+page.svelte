@@ -143,4 +143,20 @@
 	:global(.left-panel .panel-section > .helper){display:none}
 	:global(.left-panel .panel-section > button.secondary.wide){display:none}
 	:global(.left-panel .suggestion-strip){display:none}
+
+	/* Tool hierarchy: keep all capabilities one click away while making everyday tools dominant. */
+	:global(.tool-rail button:nth-child(2)){order:1}
+	:global(.tool-rail button:nth-child(4)){order:2}
+	:global(.tool-rail button:nth-child(6)){order:3}
+	:global(.tool-rail::before){content:'ALAT LAINNYA';order:4;min-height:25px;display:flex;align-items:center;justify-content:center;border-top:1px solid #ded9cd;border-bottom:1px solid #e8e4da;background:#faf9f4;color:#7a837e;font-size:8px;font-weight:800;letter-spacing:.09em}
+	:global(.tool-rail button:nth-child(1)){order:5}
+	:global(.tool-rail button:nth-child(3)){order:6}
+	:global(.tool-rail button:nth-child(5)){order:7}
+	:global(.tool-rail button:nth-child(1):not(.active)),:global(.tool-rail button:nth-child(3):not(.active)),:global(.tool-rail button:nth-child(5):not(.active)){min-height:50px;background:#faf9f4;color:#68716c}
+	:global(.tool-rail button:nth-child(1) b),:global(.tool-rail button:nth-child(3) b),:global(.tool-rail button:nth-child(5) b){font-size:18px}
+	:global(.tool-rail button:nth-child(1) span),:global(.tool-rail button:nth-child(3) span),:global(.tool-rail button:nth-child(5) span){font-size:9px}
+	@media(max-width:760px){
+		:global(.tool-rail::before){content:'';width:1px;min-width:1px;min-height:36px;align-self:center;margin:7px 3px;padding:0;border:0;background:#d8d3c6}
+		:global(.tool-rail button:nth-child(1):not(.active)),:global(.tool-rail button:nth-child(3):not(.active)),:global(.tool-rail button:nth-child(5):not(.active)){min-width:58px;min-height:54px}
+	}
 </style>
