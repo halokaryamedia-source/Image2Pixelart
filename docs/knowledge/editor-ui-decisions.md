@@ -413,6 +413,220 @@ Therefore:
 
 This decision overrides any older proposal that allowed the ordinary user to resize the Canvas.
 
+### 92 — Selection count
+
+Keep `sel` as the Grid-unit term in selection context. Use the pattern:
+
+```text
+12 sel dipilih
+```
+
+The number remains dynamic.
+
+### 93 — Fill selected cells
+
+Use:
+
+```text
+Isi Warna
+```
+
+### 94 — Clear selection
+
+Use:
+
+```text
+Kosongkan Pilihan
+```
+
+### 95 — Cancel selection
+
+Use:
+
+```text
+Batalkan Pilihan
+```
+
+### 96 — Pipet instruction
+
+Use:
+
+```text
+Klik sel untuk memilih warnanya
+```
+
+### 97 — Pan instruction
+
+Use:
+
+```text
+Drag Canvas untuk menggeser tampilan
+```
+
+### 98 — Select instruction
+
+Keep:
+
+```text
+Drag untuk memilih sel
+```
+
+### 99 — Active-color status
+
+Keep:
+
+```text
+Warna aktif
+```
+
+### 100–101 — History controls
+
+Keep:
+
+```text
+Undo
+Redo
+```
+
+### 102–106 — Drawing tool labels
+
+Use the exact original icons with these labels:
+
+```text
+⌖ Pipet
+✎ Pencil
+◩ Fill
+◇ Eraser
+⬚ Select
+```
+
+`Pipet` is the approved exception to the otherwise-English drawing-tool naming direction. Preserve all existing shortcuts and behavior.
+
+### 107 — Pan tool
+
+Use:
+
+```text
+✣ Pan
+```
+
+Preserve the exact original icon and temporary `Space` pan behavior.
+
+### 108 — Grid visibility
+
+Keep:
+
+```text
+Grid
+```
+
+### 109–110 — Zoom controls
+
+Use:
+
+```text
+Zoom Out (-)
+Zoom In (+)
+```
+
+Preserve the existing `-` and `+` shortcuts.
+
+### 111 — Fit view
+
+Use:
+
+```text
+Fit Canvas
+```
+
+Preserve the existing `0` shortcut.
+
+### 112 — Cell coordinates
+
+Keep the coordinate pattern:
+
+```text
+X 21 · Y 8
+```
+
+Coordinates remain dynamic.
+
+### 113 — Quick-palette active color
+
+Use:
+
+```text
+Warna Aktif
+```
+
+### 114 — Empty quick-palette action
+
+Use:
+
+```text
++ Tambah Warna
+```
+
+### 115 — Right-panel palette heading
+
+Keep the pattern:
+
+```text
+Palet · 8 warna
+```
+
+Use the actual palette count.
+
+### 116 — Palette tab
+
+Keep:
+
+```text
+Palet
+```
+
+### 117 — Detail tab
+
+Keep:
+
+```text
+Detail
+```
+
+### 118 — Empty-palette message
+
+Use:
+
+```text
+Belum ada warna. Tambah warna atau gunakan Saran Warna.
+```
+
+Do not append `dari gambar`; the shorter wording is sufficient.
+
+### 119 — New-color input label
+
+Use:
+
+```text
+HEX Warna Baru
+```
+
+### 120 — Add-color action
+
+Use:
+
+```text
++ Tambah Warna
+```
+
+### 121 — Palette-library action
+
+Use:
+
+```text
+Buka Library Palet
+```
+
 ---
 
 ## Scope boundary
