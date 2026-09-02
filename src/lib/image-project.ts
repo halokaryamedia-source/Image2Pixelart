@@ -23,7 +23,9 @@ export async function convertProjectImage(
 		(project.suggestedPalette?.length ?? project.importSettings.suggestionCount) !== project.importSettings.suggestionCount
 	);
 	const shouldSuggestPalette = options.suggestPalette || autoSuggestForCells;
-	const shouldApplyPalette = options.applyPalette || autoSuggestForCells;
+	const shouldApplyPalette = options.applyPalette || autoSuggestForCells || (
+		options.replaceSource && project.palette.length === 0 && shouldSuggestPalette
+	);
 	const [result, dataUrl] = await Promise.all([
 		convertImageFile(file, conversionProject, shouldSuggestPalette),
 		options.replaceSource ? fileToDataUrl(file) : Promise.resolve(project.sourceImage?.dataUrl)
