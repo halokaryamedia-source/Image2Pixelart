@@ -31,6 +31,7 @@
 	let pendingSource: PendingSourceUpload | undefined;
 	let uploadingSource = false;
 	let editable = $derived(!!device && !!meta && meta.activeEditorDeviceId === device.id && realtimeState === 'connected');
+	let showStartGuide = $derived(!!project && editable && project.palette.length === 0);
 
 	onMount(() => {
 		void initialize();
@@ -128,6 +129,7 @@
 
 {#if project && meta && device}
 	<EditorView {project} {saveState} {globalPalettes} {editable} onChange={changeProject} onBack={leave} onSaveNow={flushSave} onCreateGlobalPalette={addGlobalPalette} onDeleteGlobalPalette={removeGlobalPalette} onSourceImageChange={sourceChanged} />
+	{#if showStartGuide}<div class="start-guide" role="status"><strong>Tambahkan warna untuk mulai menggambar</strong><span>Gunakan “+ Tambah Warna” pada Palet Cepat di bawah Canvas.</span></div>{/if}
 {:else if deleted && device}
 	<main class="status-card"><img src="/mivubi-logo.png" alt="" /><h1>File ini berada di Sampah</h1><p>{deleted.purgeAfter ? `File akan dihapus permanen pada ${new Date(deleted.purgeAfter).toLocaleString('id-ID')}.` : 'File akan dihapus permanen dalam 7 hari.'}</p>{#if deleted.ownerDeviceId === device.id}<button onclick={restore}>Pulihkan File</button>{/if}<a href="/">Kembali ke File Tersimpan</a></main>
 {:else}
@@ -137,5 +139,5 @@
 {#if error && project}<div class="root-error" role="alert"><span>{error}</span><button onclick={() => (error = null)}>×</button></div>{/if}
 
 <style>
-	.status-card{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;padding:24px;text-align:center}.status-card img{width:64px;height:64px;image-rendering:pixelated}.status-card h1{margin:0;font:650 28px "Readex Pro",sans-serif}.status-card p{max-width:520px;color:#66716b}.status-card .error{color:#963f27}.status-card button,.status-card a{min-height:42px;display:inline-flex;align-items:center;padding:0 16px;border:0;border-radius:7px;background:#1f6d4a;color:white;text-decoration:none;font-weight:700}.root-error{position:fixed;z-index:150;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:16px;align-items:center;max-width:min(600px,calc(100vw - 32px));padding:11px 14px;border-radius:7px;background:#963f27;color:white;font-size:12px;font-weight:700}.root-error button{border:0;background:transparent;color:white;font-size:18px}
+	.status-card{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;padding:24px;text-align:center}.status-card img{width:64px;height:64px;image-rendering:pixelated}.status-card h1{margin:0;font:650 28px "Readex Pro",sans-serif}.status-card p{max-width:520px;color:#66716b}.status-card .error{color:#963f27}.status-card button,.status-card a{min-height:42px;display:inline-flex;align-items:center;padding:0 16px;border:0;border-radius:7px;background:#1f6d4a;color:white;text-decoration:none;font-weight:700}.root-error{position:fixed;z-index:150;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:16px;align-items:center;max-width:min(600px,calc(100vw - 32px));padding:11px 14px;border-radius:7px;background:#963f27;color:white;font-size:12px;font-weight:700}.root-error button{border:0;background:transparent;color:white;font-size:18px}.start-guide{position:fixed;z-index:68;left:50%;bottom:92px;transform:translateX(-50%);min-width:min(430px,calc(100vw - 32px));display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 13px;border:1px solid #cfc9bc;border-radius:8px;background:#fffdfa;box-shadow:0 8px 22px rgba(31,43,36,.09);color:#56615b;font-size:12px;text-align:center;pointer-events:none}.start-guide strong{color:#1f6d4a;font-weight:750}.start-guide span{color:#66716b}@media(max-width:760px){.start-guide{bottom:220px;min-width:calc(100vw - 24px);flex-direction:column;gap:2px;padding:9px 12px}}
 </style>
