@@ -1,114 +1,248 @@
-# MIVUBI Mosaic Plan
+# MIVUBI Image2Pixelart
 
-Perencana pixel mosaic MIVUBI berbasis SvelteKit yang mengubah ukuran fisik dan gambar sumber menjadi grid material presisi. Konversi dan ekspor berjalan di browser, sedangkan proyek cloud disimpan tanpa akun melalui Vercel, Neon PostgreSQL, Cloudflare R2, dan Durable Objects.
+MIVUBI Image2Pixelart adalah editor Pixel Art berbasis Svelte 5 / SvelteKit / TypeScript. Aplikasi dapat membuat Pixel Art dari Canvas kosong atau gambar sumber, mempertahankan ukuran fisik/Grid yang presisi, mengelola palet, mengedit sel, dan mengekspor hasil ke beberapa format.
 
-Identitas visual menggunakan logo resmi MIVUBI dan palet brand `#21302F`, `#005A2A`, `#FEFAEC`, `#FAF1CB`, `#F0CE61`, `#EBB734`, dan `#E4991C`.
+UI menggunakan identitas visual MIVUBI yang sudah ada. Penyederhanaan yang sedang aktif adalah penyederhanaan hierarchy, wording, dan akses — **bukan visual rebrand**.
 
-## Fitur MVP
+## Status handoff saat ini
 
-- Canvas fisik dalam cm dengan presisi 0,1 cm, disimpan sebagai integer mm.
-- Validasi pembagian tanpa gap dan rekomendasi ukuran tile kompatibel.
-- Editor canvas dengan zoom, pan, ruler, grid overlay, pencil, drag paint, bucket fill, eyedropper, eraser, selection, dan kontrol keyboard.
-- Canvas dimulai kosong; palet dapat ditambah lewat HEX atau dibuat sebagai suggestion langsung dari gambar.
-- Impor PNG/JPEG/WebP, visual crop drag/zoom, mode fit utuh, serta rekonstruksi Contour atau Photo di Web Worker.
-- Sel kosong tanpa tile, palet lokal 0–32 warna, edit HEX realtime, dan recreate canvas dari source image.
-- Autosave Neon dengan revision guard, draft IndexedDB, undo/redo berbasis patch, dan file proyek `.pixelgrid.json` berkompresi RLE.
-- Identitas perangkat anonim, tautan proyek publik, satu editor aktif, presence WebSocket, permintaan edit, dan handoff editor.
-- Gambar sumber private di R2 melalui presigned URL; SVG/PNG/PDF/CSV tetap dihasilkan lokal.
-- Ekspor PDF A4 blueprint, PNG bersih, PNG grid, CSV material, dan CSV matriks.
+Developer baru harus membedakan hal yang **sudah diimplementasikan** dari hal yang **belum dibuktikan di runtime**.
 
-Contoh utama `240 × 120 cm` dengan tile `5 cm` menghasilkan `48 × 24 = 1.152` sel.
+| Area | Status |
+| --- | --- |
+| Website Admin architecture | **Implemented at source/static level** |
+| Global Canvas settings for new work | **Implemented at source/static level** |
+| Ordinary-user Canvas resize removal | **Implemented at source/static level** |
+| Canvas-first Editor simplification | **Implemented at source/static level** |
+| Image → Pixel Art one-action flow | **Implemented at source/static level** |
+| Header / Export / tool / palette hierarchy | **Implemented at source/static level** |
+| Repository handoff documentation | **Implemented** |
+| `npm run verify:repository` on latest handoff HEAD | **Still needs local execution** |
+| `npm run check` / tests / build on latest handoff HEAD | **Still needs local execution** |
+| Desktop/mobile browser acceptance | **Not yet browser-verified** |
+| Admin password/session in configured environment | **Not yet runtime-verified** |
+| `002_site_settings.sql` applied to a target database | **Not proven/applied from the handoff session** |
+| Deployment update | **Not performed** |
 
-## Repository development policy
+The canonical continuation is [`docs/knowledge/next-action.md`](docs/knowledge/next-action.md). Do not infer completion from this README alone.
 
-Repository ini menyertakan governance development yang portable:
+## Product access model
 
-- [`AGENTS.md`](AGENTS.md) — task/agent routing dan proof boundary.
-- [`GITHUB_RULES.md`](GITHUB_RULES.md) — disiplin GitHub, commit, transfer, retry, dan STOP.
-- [`CONTEXT.md`](CONTEXT.md) — orientasi produk/arsitektur stabil.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — workflow developer.
-- [`SECURITY.md`](SECURITY.md) — secrets, data, dan cloud boundary.
-- [`docs/foundation/`](docs/foundation/) — kontrak produk/arsitektur durable.
-- [`docs/knowledge/`](docs/knowledge/) — ownership, implementation map, validation, continuity.
+There are three separate authority concepts. Do not merge them.
 
-**Branch architecture dan GitHub Rulesets sengaja tidak ditentukan oleh paket ini.** Gunakan branch/ref dan protection policy dari repository tujuan. Jangan mengimpor asumsi `develop`, `Local`, atau `main` dari repo lain secara otomatis.
+```text
+Website Admin
+→ website-level configuration authority
+→ dedicated password + server-side Admin session
+→ controls active global Canvas configuration for NEW work
 
-Verifikasi repository:
+Project owner / anonymous device identity
+→ project-specific ownership/persistence concept
+→ may matter for delete/recovery/project membership
+→ does NOT grant Website Admin access
+
+Active editor
+→ current project editing authorization
+→ enforced by active-editor + revision/realtime guards
+→ does NOT grant Website Admin access
+```
+
+The Canvas lifecycle is:
+
+```text
+Website Admin sets active Canvas width / height / cell size
+→ ordinary user creates a new work
+→ new work snapshots that configuration
+→ existing file keeps its original Canvas structure
+→ later Admin changes affect future work only
+```
+
+Ordinary users may see `Ukuran Fisik` and `Ukuran Grid`, but do not receive structural Canvas controls.
+
+## Current ordinary-user flow
+
+```text
+Home
+→ Upload Gambar or Buat Baru
+→ new work uses active Website Admin Canvas settings
+→ server validates the same Canvas contract
+→ Editor
+→ edit Pixel Art
+→ Ekspor
+```
+
+Current Editor direction:
+
+```text
+Canvas dominant
+left panel closed by default
+right panel closed by default
+Palet Cepat visible
+
+Primary tools:
+Pencil / Eraser / Pan
+
+Alat lainnya:
+Pipet / Fill / Select
+
+Image flow:
+Gaya Pixel Art
+Jumlah warna
+→ Perbarui Pixel Art dari Gambar
+```
+
+`Saran Warna` still exists as an advanced Library Palet capability; it is no longer a mandatory normal conversion step.
+
+## Website Admin routes
+
+```text
+/admin/login
+→ dedicated Website Admin login
+
+/admin
+→ Admin dashboard
+
+/admin/settings
+→ Website settings index
+
+/admin/settings/canvas
+→ global Canvas configuration for new work
+```
+
+Website Admin configuration is protected server-side. It is not implemented as a hidden URL, `localStorage` flag, or project-owner check.
+
+## Start here as the next developer
+
+Read in this order before changing the current UI/Admin work:
+
+1. [`AGENTS.md`](AGENTS.md) — task routing and proof boundary;
+2. [`GITHUB_RULES.md`](GITHUB_RULES.md) — exact branch/write/commit discipline;
+3. [`CONTEXT.md`](CONTEXT.md) — current stable product/architecture orientation;
+4. [`docs/foundation/00-product-boundaries.md`](docs/foundation/00-product-boundaries.md) — access/product contract;
+5. [`docs/foundation/05-ui-design-system.md`](docs/foundation/05-ui-design-system.md) — durable UI direction;
+6. [`docs/knowledge/editor-ui-decisions.md`](docs/knowledge/editor-ui-decisions.md) — approved ordinary UI decisions;
+7. [`docs/knowledge/implementation-map.md`](docs/knowledge/implementation-map.md) — current code hot paths;
+8. [`docs/knowledge/next-action.md`](docs/knowledge/next-action.md) — detailed handoff, superseded paths, proof status, and next step;
+9. [`docs/knowledge/current-validation.md`](docs/knowledge/current-validation.md) — what each verification level can actually prove.
+
+Reference/mockup folders such as `docs/MIVUBI-UI-UX-Redesign/` and `docs/building/` are **reference only**. They do not override current source/Foundation decisions.
+
+## Important retired concepts
+
+Do not revive these older/superseded architecture ideas merely because they appear in Git history:
+
+```text
+project owner → Website Admin
+PlayerEditorView.svelte
+AdminProjectView.svelte
+AdminEditorView.svelte
+ProjectEditorRoute.svelte
+/admin/project/[id]
+ordinary-user Canvas resize controls
+mandatory visible Saran Warna pipeline
+permanently visible export-format selector
+```
+
+Git history owns retired versions. Current source + Foundation + handoff docs own current behavior.
+
+## Repository verification
+
+Node.js requirement:
+
+```text
+>= 22.12.0
+```
+
+Install dependencies:
+
+```sh
+npm install
+```
+
+Cheapest current handoff verification:
 
 ```sh
 npm run verify:repository
+npm run check
 ```
 
-Verifikasi aplikasi deterministic:
+Additional deterministic proof when materially required:
 
 ```sh
+npm test
+npm run check:realtime
+npm run build
 npm run verify:application
 ```
 
-`verify:application` menjalankan test, Svelte check, realtime TypeScript check, dan production build. Browser/cloud runtime tetap membutuhkan proof yang sesuai.
+`npm run verify:application` runs tests, Svelte check, realtime TypeScript check, and production build. None of these substitute for real browser validation of layout, pointer/crop interaction, focus, menus, downloads, or responsive behavior.
 
-## Menjalankan lokal
+Automatic GitHub Actions verification is intentionally deferred during active development; do not re-enable CI merely as ceremony.
 
-Gunakan Node.js 22.12 atau lebih baru.
+## Local runtime setup
 
-Salin template konfigurasi:
+Do **not** treat database migration as a default first command just to inspect or validate source.
+
+For repository/static work, start with:
+
+```sh
+npm install
+npm run verify:repository
+npm run check
+```
+
+If the task actually requires a configured browser/cloud runtime:
 
 ```sh
 cp .env.example .env.local
 ```
 
-Isi Neon/R2/realtime values yang diperlukan untuk environment lokal. Jangan commit `.env.local`.
+Then configure only the services needed by that task using an intentionally selected development environment.
 
-Install dan siapkan database yang memang ditujukan untuk development:
+If a fresh dedicated development database must be initialized, migration is an explicit operation:
 
 ```sh
-npm install
 npm run db:migrate
 ```
 
-Jalankan realtime Worker dan aplikasi pada terminal terpisah:
+Run it only after confirming the `DATABASE_URL` points to the intended development database. Do not run migration against a shared/production database as routine setup.
+
+Realtime development, when the task requires it:
 
 ```sh
 npm run realtime:dev
 npm run dev
 ```
 
-Buka alamat yang ditampilkan Vite.
+Run Worker and SvelteKit in separate terminals.
 
-Untuk verifikasi deterministic:
+## Cloud architecture summary
 
-```sh
-npm run verify
+```text
+Browser / SvelteKit UI
+├── ordinary Home + Editor
+├── Website Admin UI
+├── local image conversion
+├── local exports
+├── IndexedDB draft/global palette support
+└── /api/*
+    ├── Website Admin auth/session boundary
+    ├── Neon PostgreSQL
+    │   ├── site_settings
+    │   ├── devices
+    │   ├── projects
+    │   ├── participants
+    │   └── project asset metadata
+    ├── Cloudflare R2 — private source image
+    └── Realtime authorization/token
+         └── Cloudflare Worker + Durable Object
 ```
 
-Untuk smoke integration cloud:
+The collaboration/realtime backend still protects single-active-editor persistence and live transport. The retired roster/request/handoff presentation is not part of the current ordinary Editor UI.
 
-```sh
-npm run smoke:cloud
-```
+## Operations boundary
 
-`smoke:cloud` membutuhkan kedua server aktif dan cloud environment yang memang diizinkan untuk temporary test state. Test membuat proyek/device/objek R2 temporer lalu mencoba membersihkannya.
-
-Build memakai `@sveltejs/adapter-vercel`.
-
-## Arsitektur cloud
-
-- Vercel menjalankan frontend SvelteKit dan seluruh `/api/*`.
-- Neon menyimpan device anonim, peserta, dokumen proyek, cells `BYTEA`, revision, lock editor, dan soft-delete tujuh hari.
-- R2 bucket private menyimpan satu gambar sumber aktif per proyek. Browser melakukan upload langsung memakai presigned `PUT`.
-- Worker/Durable Object di `realtime/` menangani presence dan live patch melalui WebSocket Hibernation; viewer idle tidak perlu polling Neon atau R2.
-- ID dan secret perangkat tersimpan di `localStorage`. ID dapat dipakai untuk administrasi/support; secret adalah credential dan tidak boleh dibagikan.
-
-API publik berada di `src/routes/api`. Migration berada di `db/migrations/`.
-
-## Deployment / operasi
-
-Production yang tercatat pada source saat ini:
-
-- Aplikasi: `https://mivubi-pixel-mosaic.vercel.app`
-- Realtime Worker: `https://mivubi-mosaic-realtime.mivubiteam.workers.dev`
-
-Operasi berikut **bukan** bagian otomatis dari development verification:
+These commands may mutate external state and are **not** ordinary completion checks:
 
 ```sh
 npm run db:migrate
@@ -118,20 +252,36 @@ npm run r2:configure-cors
 npm run smoke:cloud
 ```
 
-Gunakan hanya pada environment yang memang dituju dan dengan authorization yang sesuai. Detail ada di [`docs/foundation/04-deployment-operations.md`](docs/foundation/04-deployment-operations.md).
+Use them only for an explicitly intended environment and with appropriate authorization.
 
-## Kontrak dan batas
+## Security
 
-- Maksimum 250.000 sel, 2.000 sel per sisi, dan palette proyek 0–32 warna.
-- Gambar maksimum 20 MB / 25 megapixel; format PNG, JPEG, atau WebP.
-- File proyek memakai `schemaVersion: 3`; proyek schema v1/v2 dimigrasikan otomatis dan cells disimpan row-major dalam RLE.
-- PDF adalah panduan pemasangan, bukan cetakan skala 1:1; halaman detail memuat maksimal 24 × 24 sel.
-- PNG dibatasi berdasarkan sisi dan total area bitmap untuk menjaga penggunaan memori browser.
+Committed templates contain placeholders only:
 
-Kontrak durable image/grid berada di [`docs/foundation/02-image-grid-contract.md`](docs/foundation/02-image-grid-contract.md).
+```text
+.env.example
+realtime/.dev.vars.example
+```
 
-## Privasi dan pemulihan
+Never commit real database URLs, R2 credentials, Cloudflare/Vercel tokens, realtime secrets, Admin secrets, session cookies, device secrets, private source images, or production data.
 
-Proyek dapat dilihat oleh siapa pun yang mengetahui URL UUID-nya sesuai model public-link saat ini. Hanya perangkat editor aktif yang boleh menyimpan. Tidak ada email, akun, atau recovery link; jika localStorage pemilik hilang, admin dapat memindahkan owner ke device ID baru melalui operasi administratif yang terkontrol.
+Website Admin uses runtime configuration including:
 
-Source image tetap private di R2. Secrets, production data, dan deployment credentials mengikuti [`SECURITY.md`](SECURITY.md).
+```text
+ADMIN_PASSWORD_HASH
+ADMIN_SESSION_SECRET
+```
+
+Treat both as private runtime configuration. See [`SECURITY.md`](SECURITY.md).
+
+## Current technical limits
+
+- maximum project Grid: 250,000 cells;
+- maximum 2,000 cells on either side;
+- project palette: 0–32 colors;
+- source image: PNG/JPEG/WebP;
+- source image: maximum 20 MB / 25 megapixels;
+- project schema: version 3;
+- PDF output is a blueprint/install guide, not a 1:1 physical print sheet.
+
+Durable technical invariants are owned by [`docs/foundation/`](docs/foundation/), not by examples in this README.
