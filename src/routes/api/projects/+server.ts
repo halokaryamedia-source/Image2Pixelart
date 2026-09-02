@@ -5,6 +5,7 @@ import { db } from '$lib/server/db';
 import { ApiError, apiError, readJson, requestIp, uuid } from '$lib/server/http';
 import { validateCloudPayload, rowToPayload, type ProjectRow } from '$lib/server/project-data';
 import { enforceRateLimit } from '$lib/server/rate-limit';
+import { getCanvasSettings } from '$lib/server/site-settings';
 import { cellsFromBase64 } from '$lib/cloud/project-codec';
 import { EMPTY_CELL } from '$lib/types';
 
@@ -52,6 +53,11 @@ export const POST: RequestHandler = async (event) => {
 		await enforceRateLimit('project-create', requestIp(event), 10, 3600);
 		const input = await readJson<unknown>(event.request);
 		const { project, document, cellBytes } = validateCloudPayload(input);
+		const canvas = await getCanvasSettings();
+		if (
+			project.widthMm !== canvas.widthMm || project.heightMm !== canvas.heightMm || project.cellMm !== canvas.cellMm ||
+			project.columns !== canvas.columns || project.rows !== canvas.rows
+		) throw new ApiError(400, 'Ukuran Canvas tidak sesuai dengan Pengaturan Website.');
 		uuid(project.id, 'Project ID');
 		const rows = await db().query(
 			`WITH inserted AS (

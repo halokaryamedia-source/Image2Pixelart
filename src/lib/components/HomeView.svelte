@@ -2,22 +2,23 @@
 	import { onDestroy } from 'svelte';
 	import CloudProjectThumbnail from '$lib/components/CloudProjectThumbnail.svelte';
 	import type { CloudProjectSummary } from '$lib/cloud/types';
+	import type { CanvasSettings } from '$lib/site-settings';
 	import { MAX_IMAGE_BYTES } from '$lib/image-converter';
-	import { cmToMm, validateGridMm } from '$lib/utils/grid';
+	import { validateGridMm } from '$lib/utils/grid';
 
 	type CreateInput = { name: string; widthMm: number; heightMm: number; cellMm: number; mode: 'image' | 'blank'; file?: File };
 	type Props = {
-		projects: CloudProjectSummary[]; ready: boolean; deviceName: string; deviceId: string;
+		projects: CloudProjectSummary[]; ready: boolean; deviceName: string; deviceId: string; canvasSettings: CanvasSettings;
 		onCreate: (input: CreateInput) => Promise<void>;
 		onOpen: (project: CloudProjectSummary) => void; onDelete: (id: string) => void; onImport: (file: File) => void; onRenameDevice: () => void;
 	};
-	let { projects, ready, deviceName, deviceId, onCreate, onOpen, onDelete, onImport, onRenameDevice }: Props = $props();
+	let { projects, ready, deviceName, deviceId, canvasSettings, onCreate, onOpen, onDelete, onImport, onRenameDevice }: Props = $props();
 	let mode = $state<'image' | 'blank'>('image');
 	let name = $state('');
-	let widthCm = $state(240); let heightCm = $state(120); let cellCm = $state(5);
+	let widthCm = $derived(canvasSettings.widthMm / 10); let heightCm = $derived(canvasSettings.heightMm / 10); let cellCm = $derived(canvasSettings.cellMm / 10);
 	let selectedFile = $state<File | null>(null); let previewUrl = $state(''); let fileError = $state('');
 	let creating = $state(false); let openMenu = $state<string | null>(null);
-	let validation = $derived(validateGridMm(cmToMm(widthCm), cmToMm(heightCm), cmToMm(cellCm)));
+	let validation = $derived(validateGridMm(canvasSettings.widthMm, canvasSettings.heightMm, canvasSettings.cellMm));
 	let previewColumns = $derived(validation.valid ? validation.columns : 24);
 	let previewRows = $derived(validation.valid ? validation.rows : 24);
 	let activeProjects = $derived(projects.filter((project) => !project.deletedAt));
@@ -44,7 +45,7 @@
 	async function submit(event: SubmitEvent) {
 		event.preventDefault(); if (!canSubmit) return; creating = true;
 		const finalName = name.trim() || fallbackName(); name = finalName;
-		try { await onCreate({ name: finalName, widthMm: cmToMm(widthCm), heightMm: cmToMm(heightCm), cellMm: cmToMm(cellCm), mode, file: selectedFile ?? undefined }); }
+		try { await onCreate({ name: finalName, widthMm: canvasSettings.widthMm, heightMm: canvasSettings.heightMm, cellMm: canvasSettings.cellMm, mode, file: selectedFile ?? undefined }); }
 		finally { creating = false; }
 	}
 	function importFile(event: Event) { const input = event.currentTarget as HTMLInputElement; const file = input.files?.[0]; input.value = ''; if (file) onImport(file); }
@@ -77,7 +78,7 @@
 			{/if}
 			<label><span>Nama Karya</span><input bind:value={name} maxlength="200" placeholder="Beri nama karyamu" /></label>
 			<div class:invalid={!validation.valid} class="grid-result"><span><b>▦</b><strong><small>Ukuran Grid</small>{validation.valid ? `${validation.columns} × ${validation.rows}` : '—'}</strong></span></div>
-			{#if !validation.valid}<p class="form-error">{validation.reason}</p>{/if}
+			{#if !validation.valid}<p class="form-error">{validation.reason.replace('Ukuran tile', 'Ukuran sel')}</p>{/if}
 			<button class="primary-button" type="submit" disabled={!canSubmit}>{creating ? (mode === 'image' ? 'Memproses gambar…' : 'Membuat karya…') : 'Buat Karya'} <span>→</span></button>
 		</form>
 		<aside class="visual-card" aria-label="Preview Karya">

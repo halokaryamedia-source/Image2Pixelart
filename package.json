@@ -12,6 +12,7 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync",
 		"db:migrate": "node --env-file=.env.local scripts/migrate-db.mjs",
+		"admin:hash-password": "node scripts/hash-admin-password.mjs",
 		"db:reassign-owner": "node --env-file=.env.local scripts/reassign-project-owner.mjs",
 		"realtime:dev": "wrangler dev --config realtime/wrangler.jsonc",
 		"realtime:deploy": "wrangler deploy --config realtime/wrangler.jsonc",

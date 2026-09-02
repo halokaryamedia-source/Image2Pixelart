@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import type { PageData } from './$types';
 	import HomeView from '$lib/components/HomeView.svelte';
 	import { createCloudProject, deleteCloudProject, listCloudProjects, registerDevice } from '$lib/cloud/api';
 	import { getDeviceIdentity, updateDeviceDisplayName } from '$lib/cloud/device';
@@ -9,6 +10,7 @@
 	import { convertProjectImage } from '$lib/image-project';
 	import { createProject, deserializeProject } from '$lib/project';
 
+	let { data }: { data: PageData } = $props();
 	let projects = $state<CloudProjectSummary[]>([]);
 	let device = $state<DeviceIdentity | null>(null);
 	let ready = $state(false);
@@ -27,7 +29,8 @@
 	async function createNew(input: { name: string; widthMm: number; heightMm: number; cellMm: number; mode: 'image' | 'blank'; file?: File }) {
 		if (!device) throw new Error('Perangkat belum siap.');
 		try {
-			let project = createProject(input);
+			const configured = { ...input, widthMm: data.canvasSettings.widthMm, heightMm: data.canvasSettings.heightMm, cellMm: data.canvasSettings.cellMm };
+			let project = createProject(configured);
 			if (input.mode === 'image') {
 				if (!input.file) throw new Error('Pilih gambar terlebih dahulu.');
 				project = await convertProjectImage(project, input.file, { suggestPalette: true, applyPalette: true, applyCells: true, replaceSource: true });
@@ -65,7 +68,7 @@
 </script>
 
 {#if device}
-	<HomeView {projects} {ready} deviceName={device.displayName} deviceId={device.id} onCreate={createNew} onOpen={(project) => goto(`/project/${project.id}`)} onDelete={removeProject} onImport={importProject} onRenameDevice={renameDevice} />
+	<HomeView {projects} {ready} canvasSettings={data.canvasSettings} deviceName={device.displayName} deviceId={device.id} onCreate={createNew} onOpen={(project) => goto(`/project/${project.id}`)} onDelete={removeProject} onImport={importProject} onRenameDevice={renameDevice} />
 {:else if !ready}
 	<div class="loading">Menyiapkan perangkat…</div>
 {/if}

@@ -23,26 +23,35 @@ A valid project can:
 
 ## Access model
 
-The application uses **one UI language and one MIVUBI visual identity with two exposure levels**:
+The application uses **one UI language and one MIVUBI visual identity with two access levels**:
 
-- **Akses Umum** is the simplified ordinary-user surface. Structural Canvas values such as physical size and Grid size may be shown as information, but ordinary users are not given controls to change them.
-- **Akses Admin** exposes advanced project controls while keeping the same approved UI terminology, visual identity, and interaction language.
-- In the current anonymous-device architecture, the **project owner device is the Admin authority for that file**. This does not introduce an email/password account system.
-- Hiding an advanced control from Akses Umum does not delete the underlying product capability when that capability is still required by Akses Admin.
-- Admin access does not reintroduce the retired collaboration roster/request/handoff UI into ordinary product surfaces.
-- A structural project save still follows the existing durable save authorization and revision guards. Owner authority for Admin-only structural changes is an additional restriction, not a replacement for current editor/save authorization.
+- **Akses Umum** is the simplified ordinary-user surface. Canvas physical size and Grid size may be shown as information, but ordinary users are not given controls to change the website Canvas configuration.
+- **Admin Website** is an application-level authority for website configuration. It is **not** the project owner, `ownerDeviceId`, current active editor, or an ordinary device identity.
+- Admin Website uses separate password authentication and a server-side Admin session. This does not introduce an email/password account system for ordinary users.
+- Admin Website determines the active global Canvas configuration: physical width, physical height, and cell size. Grid dimensions and total cells are derived from those values.
+- A newly created artwork snapshots the active Canvas configuration into its own project data at creation time.
+- Later Admin changes apply to **new artworks only**. Existing artworks retain the Canvas configuration stored when they were created.
+- Project ownership, active-editor authorization, revision guards, source-image storage, and other project/cloud permissions remain separate from Website Admin authority.
+- Hiding an advanced setting from Akses Umum does not remove the underlying website-level capability required by Admin Website.
+- The retired collaboration roster/request/handoff UI is not reintroduced by Website Admin access.
 
 Current route exposure:
 
 ```text
 /project/[id]
-→ Akses Umum
+→ Akses Umum Editor
+
+/admin/login
+→ Admin Website login
 
 /admin
-→ owner-managed Admin file list
+→ Admin dashboard
 
-/admin/project/[id]
-→ owner-only Mode Admin for one file
+/admin/settings
+→ Pengaturan Website
+
+/admin/settings/canvas
+→ global Pengaturan Canvas for new artworks
 ```
 
 ## Non-goals unless explicitly changed
@@ -51,7 +60,7 @@ The product is not automatically:
 
 - a full Photoshop/general raster editor;
 - a print-at-1:1-scale tiling system;
-- an email/password account platform;
+- an email/password account platform for ordinary users;
 - a public asset CDN;
 - a multi-writer conflict-free collaborative editor;
 - an automatic deployment/migration agent;
