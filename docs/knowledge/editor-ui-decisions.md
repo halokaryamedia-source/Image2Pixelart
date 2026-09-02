@@ -955,6 +955,94 @@ Ctrl/Cmd E       Ekspor Format Terpilih
 Esc              Tutup atau Batalkan
 ```
 
+### 162 — View and color shortcuts
+
+Use the existing shortcut keys with the approved terminology:
+
+```text
+1–9     Pilih Warna Palet
+G       Tampilkan/Sembunyikan Grid
++       Zoom In
+−       Zoom Out
+0       Fit Canvas
+?       Buka Keyboard Shortcuts
+```
+
+### 163 — Trashed-file status
+
+Use:
+
+```text
+File ini berada di Sampah
+```
+
+### 164 — Permanent-delete information
+
+Use the appropriate dynamic form:
+
+```text
+File akan dihapus permanen pada {tanggal}.
+```
+
+or:
+
+```text
+File akan dihapus permanen dalam 7 hari.
+```
+
+### 165 — Restore file action
+
+Use:
+
+```text
+Pulihkan File
+```
+
+### 166 — Return from file status
+
+Use:
+
+```text
+Kembali ke File Tersimpan
+```
+
+### 167 — File loading status
+
+Use:
+
+```text
+Membuka file…
+```
+
+### 168 — Device/user display-name prompt
+
+Use:
+
+```text
+Nama Tampilan:
+```
+
+Do not refer to an active-user list because collaborative co-editing is removed.
+
+### 169 — Device initialization status
+
+Use:
+
+```text
+Menyiapkan perangkat…
+```
+
+### 170 — Toast / feedback structure
+
+Keep the existing feedback structure:
+
+```text
+✓ {message}
+! {message}   ×
+```
+
+The dynamic message must use the approved terminology and copy decisions in this log and the Home UI language contract.
+
 ---
 
 ## Scope boundary
