@@ -21,6 +21,30 @@ A valid project can:
 - produce material/grid/blueprint exports;
 - be stored and collaboratively viewed/edited through the current anonymous cloud model.
 
+## Access model
+
+The application uses **one UI language and one MIVUBI visual identity with two exposure levels**:
+
+- **Akses Umum** is the simplified ordinary-user surface. Structural Canvas values such as physical size and Grid size may be shown as information, but ordinary users are not given controls to change them.
+- **Akses Admin** exposes advanced project controls while keeping the same approved UI terminology, visual identity, and interaction language.
+- In the current anonymous-device architecture, the **project owner device is the Admin authority for that file**. This does not introduce an email/password account system.
+- Hiding an advanced control from Akses Umum does not delete the underlying product capability when that capability is still required by Akses Admin.
+- Admin access does not reintroduce the retired collaboration roster/request/handoff UI into ordinary product surfaces.
+- A structural project save still follows the existing durable save authorization and revision guards. Owner authority for Admin-only structural changes is an additional restriction, not a replacement for current editor/save authorization.
+
+Current route exposure:
+
+```text
+/project/[id]
+→ Akses Umum
+
+/admin
+→ owner-managed Admin file list
+
+/admin/project/[id]
+→ owner-only Mode Admin for one file
+```
+
 ## Non-goals unless explicitly changed
 
 The product is not automatically:

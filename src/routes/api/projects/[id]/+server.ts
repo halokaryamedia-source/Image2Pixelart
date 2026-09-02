@@ -30,14 +30,29 @@ export const GET: RequestHandler = async ({ params }) => {
 
 export const PUT: RequestHandler = async ({ request, params }) => {
 	try {
-		const id = uuid(params.id, 'Project ID'); const device = await authenticateDevice(request);
+		const id = uuid(params.id, 'Project ID');
+		const device = await authenticateDevice(request);
 		await enforceRateLimit('project-save', `${id}:${device.id}`, 60, 60);
 		const expectedRevision = Number(request.headers.get('if-match'));
 		if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) throw new ApiError(428, 'Revision proyek wajib dikirim melalui If-Match.');
 		const input = await readJson<unknown>(request);
 		const { project, document, cellBytes } = validateCloudPayload(input, id);
-		const current = await db().query('SELECT active_editor_device_id, editor_epoch FROM projects WHERE id = $1::uuid AND deleted_at IS NULL', [id]) as Array<{ active_editor_device_id: string | null; editor_epoch: number }>;
+		const current = await db().query(
+			'SELECT owner_device_id, active_editor_device_id, editor_epoch, document FROM projects WHERE id = $1::uuid AND deleted_at IS NULL',
+			[id]
+		) as Array<Pick<ProjectRow, 'owner_device_id' | 'active_editor_device_id' | 'editor_epoch' | 'document'>>;
 		if (!current.length) throw new ApiError(404, 'Proyek tidak ditemukan.');
+
+		const structuralChanged =
+			project.widthMm !== Number(current[0].document.widthMm) ||
+			project.heightMm !== Number(current[0].document.heightMm) ||
+			project.cellMm !== Number(current[0].document.cellMm) ||
+			project.columns !== Number(current[0].document.columns) ||
+			project.rows !== Number(current[0].document.rows);
+		if (structuralChanged && current[0].owner_device_id !== device.id) {
+			throw new ApiError(403, 'Hanya Admin yang dapat mengubah Ukuran Canvas.');
+		}
+
 		if (current[0].active_editor_device_id !== device.id) throw new ApiError(403, 'Perangkat ini bukan editor aktif.');
 		try { await authorizeRealtimeEditor(id, device.id, Number(current[0].editor_epoch)); }
 		catch (error) { throw new ApiError(409, error instanceof Error ? error.message : 'Editor realtime tidak aktif.'); }
@@ -58,7 +73,8 @@ export const PUT: RequestHandler = async ({ request, params }) => {
 
 export const DELETE: RequestHandler = async ({ request, params }) => {
 	try {
-		const id = uuid(params.id, 'Project ID'); const device = await authenticateDevice(request);
+		const id = uuid(params.id, 'Project ID');
+		const device = await authenticateDevice(request);
 		const rows = await db().query(
 			`UPDATE projects SET deleted_at = now(), purge_after = now() + interval '7 days', updated_at = now()
 			 WHERE id = $1::uuid AND owner_device_id = $2::uuid AND deleted_at IS NULL RETURNING purge_after`, [id, device.id]

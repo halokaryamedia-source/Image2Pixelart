@@ -3,4 +3,4 @@
 	import ProjectEditorRoute from '$lib/components/ProjectEditorRoute.svelte';
 </script>
 
-<ProjectEditorRoute projectId={page.params.id!} />
+<ProjectEditorRoute projectId={page.params.id!} adminMode />
