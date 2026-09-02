@@ -1,4 +1,9 @@
 <script lang="ts">
+	// RETIRED ORDINARY UI / DELETION CANDIDATE.
+	// The current Local Editor does not treat this component as UI authority and the
+	// ordinary collaboration roster/request/handoff presentation is intentionally retired.
+	// Keep backend realtime/editor authorization intact. Before deleting this file,
+	// confirm zero Local imports with a local usage scan and run the relevant Svelte check.
 	import type { PresenceParticipant } from '$lib/cloud/types';
 	type Props = {
 		participants: PresenceParticipant[]; deviceId: string; ownerDeviceId: string; activeEditorDeviceId: string | null;
