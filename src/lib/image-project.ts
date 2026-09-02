@@ -18,19 +18,25 @@ export async function convertProjectImage(
 	const conversionProject = options.replaceSource
 		? { ...project, importSettings: { ...project.importSettings, crop: null } }
 		: project;
+	const autoSuggestForCells = options.applyCells && (
+		project.palette.length === 0 ||
+		(project.suggestedPalette?.length ?? project.importSettings.suggestionCount) !== project.importSettings.suggestionCount
+	);
+	const shouldSuggestPalette = options.suggestPalette || autoSuggestForCells;
+	const shouldApplyPalette = options.applyPalette || autoSuggestForCells;
 	const [result, dataUrl] = await Promise.all([
-		convertImageFile(file, conversionProject, options.suggestPalette),
+		convertImageFile(file, conversionProject, shouldSuggestPalette),
 		options.replaceSource ? fileToDataUrl(file) : Promise.resolve(project.sourceImage?.dataUrl)
 	]);
 	const crop = conversionProject.importSettings.placement === 'crop'
 		? conversionProject.importSettings.crop ?? centeredCropRect(result.imageWidth, result.imageHeight, project.columns / project.rows)
 		: conversionProject.importSettings.crop;
-	const suggestion = options.suggestPalette
+	const suggestion = shouldSuggestPalette
 		? result.palette.map((entry) => ({ ...entry, name: undefined, locked: false }))
 		: project.suggestedPalette?.map((entry) => ({ ...entry }));
 	return {
 		...project,
-		palette: options.applyPalette
+		palette: shouldApplyPalette
 			? result.palette.map((entry) => ({ ...entry, name: undefined, locked: false }))
 			: project.palette.map((entry) => ({ ...entry })),
 		suggestedPalette: suggestion,
