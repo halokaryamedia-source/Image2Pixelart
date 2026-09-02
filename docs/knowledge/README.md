@@ -17,6 +17,9 @@ implementation-map.md
 current-validation.md
 → durable proof interpretation and proof ceilings
 
+editor-ui-decisions.md
+→ approved ordinary Editor UI decisions; do not reinterpret them as permission for unrelated redesign
+
 frontend-reference-inventory.md
 → current UI/reference catalog + authority classification
 
@@ -30,14 +33,25 @@ ui-language-contract.md
 → agreed UI language policy: Indonesian where natural, familiar English where translation feels forced, English tool names, and terminology consistency
 
 ui-audit.md
-→ current Home/Editor UI audit and prioritized alignment gaps
+→ current source/static UI audit after the implemented simplification pass
 
 ui-implementation-plan.md
-→ current bounded UI implementation sequence; not automatic execution
+→ implemented UI slice + explicit do-not-redesign boundary + remaining proof work
 
 decisions/
 → material durable decisions only
 ```
+
+## Current handoff reading order
+
+For a developer continuing the current Website Admin + Editor work, read in this order:
+
+1. `../foundation/00-product-boundaries.md` — product/access boundary;
+2. `../foundation/05-ui-design-system.md` — durable UI authority;
+3. `editor-ui-decisions.md` — approved ordinary Editor wording/behavior decisions;
+4. `implementation-map.md` — current source routing and retired paths;
+5. `next-action.md` — current handoff status, proof level, and one next step;
+6. `current-validation.md` — what each verification level can actually prove.
 
 Current source outranks stale continuity. Git history owns ordinary historical detail.
 
@@ -47,4 +61,4 @@ Current source outranks stale continuity. Git history owns ordinary historical d
 
 `ui-language-contract.md` governs terminology cleanup. The UI should use Indonesian where it reads naturally and retain familiar English software/creative terms when an Indonesian translation would feel forced. Tool labels are English; visual/icon preservation remains governed separately by `ui-preservation-contract.md`.
 
-Do not create parallel roadmaps, review archives, status systems, duplicate owner maps, or separate UI-reference catalogs unless a distinct current responsibility is proven.
+Do not create a parallel handoff diary, roadmap, status system, duplicate owner map, or separate UI-reference catalog. Update the owners above instead.
